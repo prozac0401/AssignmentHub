@@ -115,5 +115,117 @@
     640,
     520
   ],
-  "native_manager": "Real Tk window and real widget callbacks; confirmation supplied within isolated test process"
+  "native_manager": "Real Tk window and real widget callbacks; confirmation supplied within isolated test process",
+  "tab_style_check": {
+    "passed": true,
+    "checks": [
+      {
+        "window": [
+          740,
+          760
+        ],
+        "selected": 0,
+        "tab_vertical_bounds": [
+          [
+            6,
+            46
+          ],
+          [
+            6,
+            46
+          ]
+        ]
+      },
+      {
+        "window": [
+          740,
+          760
+        ],
+        "selected": 1,
+        "tab_vertical_bounds": [
+          [
+            6,
+            46
+          ],
+          [
+            6,
+            46
+          ]
+        ]
+      },
+      {
+        "window": [
+          740,
+          760
+        ],
+        "selected": 0,
+        "tab_vertical_bounds": [
+          [
+            6,
+            46
+          ],
+          [
+            6,
+            46
+          ]
+        ]
+      },
+      {
+        "window": [
+          540,
+          480
+        ],
+        "selected": 0,
+        "tab_vertical_bounds": [
+          [
+            6,
+            46
+          ],
+          [
+            6,
+            46
+          ]
+        ]
+      },
+      {
+        "window": [
+          540,
+          480
+        ],
+        "selected": 1,
+        "tab_vertical_bounds": [
+          [
+            6,
+            46
+          ],
+          [
+            6,
+            46
+          ]
+        ]
+      },
+      {
+        "window": [
+          540,
+          480
+        ],
+        "selected": 0,
+        "tab_vertical_bounds": [
+          [
+            6,
+            46
+          ],
+          [
+            6,
+            46
+          ]
+        ]
+      }
+    ],
+    "refreshed_captures": [
+      "02-create-course.png",
+      "03-course-limits.png"
+    ],
+    "full_walkthrough_rerun": false
+  }
 }

@@ -24,8 +24,14 @@ def apply_theme(root):
     style.map("TEntry", bordercolor=[("focus", "#4f46e5")], fieldbackground=[("readonly", "#f0f2f9")])
     style.configure("TCombobox", fieldbackground="white", padding=7, bordercolor="#cfd5e3", arrowsize=14)
     style.configure("TNotebook", borderwidth=0, tabmargins=(0, 6, 0, 0))
-    style.configure("TNotebook.Tab", padding=(18, 10), background="#eceef6")
-    style.map("TNotebook.Tab", background=[("selected", "white")], foreground=[("selected", "#4338ca")])
+    style.configure("TNotebook.Tab", padding=(18, 10), background="#f0f2f9", foreground="#647087",
+                    bordercolor="#d5dbe8", lightcolor="#d5dbe8", darkcolor="#d5dbe8",
+                    focuscolor="#4f46e5")
+    # Clam otherwise overrides the selected tab with smaller padding (6, 4, 6, 2).
+    # Keep geometry identical in every state; communicate selection using color.
+    style.map("TNotebook.Tab", padding=[], lightcolor=[],
+              background=[("selected", "#e7e7fc"), ("active", "#e9ecf6")],
+              foreground=[("selected", "#3730a3"), ("active", "#414c63")])
     style.configure("Treeview", rowheight=46, background="white", fieldbackground="white",
                     bordercolor="#e3e7ef", lightcolor="#e3e7ef", darkcolor="#e3e7ef")
     style.configure("Treeview.Heading", font=("Malgun Gothic", 10, "bold"), background="#f0f2f9",
