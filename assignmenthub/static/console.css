@@ -1,0 +1,44 @@
+/* Shared visual language with the direct uploader. All assets work offline. */
+:root { --ah-accent:#4f46e5; --ah-ink:#202539; --ah-muted:#647087; --ah-border:#e3e7ef; }
+.stApp { background:#f7f8fc; color:var(--ah-ink); font-family:"Segoe UI","Malgun Gothic",sans-serif; }
+.stApp header[data-testid="stHeader"] { background:transparent; }
+.stMainBlockContainer { max-width:1280px; padding:2.8rem 2.5rem 4rem; }
+h1,h2,h3 { color:var(--ah-ink); letter-spacing:-.035em; }
+h1 { font-size:2rem!important; font-weight:750!important; }
+h2,h3 { font-weight:650!important; }
+.stCaption p { color:var(--ah-muted); line-height:1.7; }
+a { color:var(--ah-accent); }
+.ah-brand { display:flex; align-items:center; gap:10px; color:var(--ah-ink); font-size:17px; font-weight:750; letter-spacing:-.4px; margin:0 0 24px; }
+.ah-mark { display:inline-grid; place-items:center; width:34px; height:34px; border-radius:10px; background:var(--ah-accent); color:white; font-size:13px; letter-spacing:-.5px; flex-shrink:0; }
+.ah-eyebrow { color:var(--ah-muted); font-size:11px; font-weight:700; letter-spacing:1.8px; margin:8px 0 4px; }
+.ah-login-intro { max-width:470px; padding:42px 12px 24px 0; }
+.ah-login-intro h2 { font-size:clamp(28px,3vw,42px); line-height:1.45; margin:14px 0; }
+.ah-login-intro p { color:var(--ah-muted); font-size:15px; line-height:1.9; }
+.ah-login-steps { margin-top:30px; display:grid; gap:16px; font-size:14px; color:#48536a; }
+.ah-login-steps span { color:var(--ah-accent); margin-right:14px; font-size:12px; font-weight:700; }
+[data-testid="stForm"], [data-testid="stVerticalBlockBorderWrapper"] > div { border-radius:14px!important; }
+[data-testid="stForm"] { background:white; border-color:var(--ah-border); padding:24px; }
+[data-testid="stMetric"] { background:white; border:1px solid var(--ah-border); border-radius:12px; padding:18px 20px; min-width:0; }
+[data-testid="stMetricLabel"] { color:var(--ah-muted); }
+[data-testid="stMetricValue"] { font-size:clamp(22px,2.3vw,32px); font-weight:650; color:var(--ah-ink); }
+[data-testid="stSidebar"] { background:#f0f2f9; border-right:1px solid var(--ah-border); }
+[data-testid="stSidebarUserContent"] { padding-top:26px; }
+[data-testid="stSidebar"] [role="radiogroup"] { gap:5px; }
+[data-testid="stSidebar"] [role="radiogroup"] label { padding:11px 14px; border-radius:8px; margin:0; width:100%; transition:background .15s; }
+[data-testid="stSidebar"] [role="radiogroup"] label:hover { background:#e7e9f4; }
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) { background:#e2e3fc; color:#3730a3; font-weight:650; }
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:focus-visible) { outline:3px solid #a5b4fc; outline-offset:2px; }
+[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child { display:none; }
+[data-testid="stBaseButton-primary"], [data-testid="stBaseButton-primaryFormSubmit"] { background:var(--ah-accent); border-color:var(--ah-accent); color:white; }
+[data-testid="stBaseButton-primary"]:hover, [data-testid="stBaseButton-primaryFormSubmit"]:hover { background:#4338ca; border-color:#4338ca; color:white; }
+.stButton button, .stLinkButton a, .stDownloadButton button, .stFormSubmitButton button { border-radius:8px; min-height:42px; }
+button:focus-visible, a:focus-visible { outline:3px solid #a5b4fc!important; outline-offset:3px; }
+[data-testid="stTextInputRootElement"], [data-baseweb="select"] > div, [data-testid="stTextArea"] textarea { background:white; border-radius:8px; }
+[data-testid="stExpander"] { background:white; border-color:var(--ah-border); border-radius:12px; }
+[data-testid="stDataFrame"], [data-testid="stTable"] { border-radius:10px; }
+[data-testid="stAlert"] { border-radius:10px; }
+[data-testid="stMarkdownContainer"] p, [data-testid="stText"], [data-testid="stCode"] { overflow-wrap:anywhere; }
+hr { border-color:var(--ah-border); margin:1.5rem 0; }
+@media (max-width:900px) { .stMainBlockContainer { padding:2.8rem 1.25rem 3rem; } [data-testid="stHorizontalBlock"] { flex-wrap:wrap; gap:1rem; } [data-testid="stColumn"] { min-width:min(100%,240px); flex:1 1 240px; } }
+@media (max-width:600px) { .stMainBlockContainer { padding:2.8rem 1rem 2rem; } h1 { font-size:1.65rem!important; } [data-testid="stColumn"] { min-width:100%; } .ah-login-intro { padding:4px 0; } .ah-login-intro h2 { font-size:28px; } .ah-login-steps { display:none; } [data-testid="stForm"] { padding:18px; } [data-testid="stMetric"] { padding:14px 18px; } }
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none!important; } }

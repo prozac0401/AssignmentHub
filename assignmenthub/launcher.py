@@ -341,9 +341,9 @@ def supervise(config_path: Path, launch_id: str) -> int:
                                f"--server.baseUrlPath=ui/{config.instance_id}", "--server.headless=true",
                                "--server.fileWatcherType=none", "--server.maxUploadSize=5", "--server.enableCORS=true",
                                "--server.enableXsrfProtection=true", "--browser.gatherUsageStats=false",
-                               "--client.toolbarMode=minimal", "--theme.primaryColor=#17684f",
-                               "--theme.backgroundColor=#f5f7f3", "--theme.secondaryBackgroundColor=#eef3ec",
-                               "--theme.textColor=#183e2e",
+                               "--client.toolbarMode=minimal", "--theme.base=light", "--theme.primaryColor=#4f46e5",
+                               "--theme.backgroundColor=#f7f8fc", "--theme.secondaryBackgroundColor=#f0f2f9",
+                               "--theme.textColor=#202539",
                                f"--browser.serverAddress={config.public_host}", f"--browser.serverPort={config.port}"]
                     # Let Streamlit generate a private per-process random secret;
                     # no signing secret is exposed in command arguments or logs.

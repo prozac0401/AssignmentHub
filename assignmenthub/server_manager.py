@@ -14,6 +14,7 @@ from tkinter import filedialog, messagebox, ttk
 import webbrowser
 
 from assignmenthub.config import Config
+from assignmenthub.desktop_style import ScrollFrame, apply_theme
 from assignmenthub.launcher import PROJECT_ROOT, start, status, stop
 from assignmenthub.management import Catalog, diagnose, gib_bytes, gib_text, network_addresses, state_label
 
@@ -33,8 +34,9 @@ class CourseDialog(tk.Toplevel):
         self.manager, self.path = manager, path
         self.config = Config.load(path) if path else None
         self.title("과정 설정" if path else "새 과정 만들기")
-        self.geometry("700x650")
-        self.minsize(660, 620)
+        self.configure(background="#f7f8fc")
+        self.geometry("740x760")
+        self.minsize(540, 480)
         self.transient(manager.root)
         self.grab_set()
         self.busy = False
@@ -45,9 +47,11 @@ class CourseDialog(tk.Toplevel):
         ttk.Label(self, text="과정과 접속 정보를 입력하세요", style="Heading.TLabel").grid(row=0, column=0, sticky="w", padx=24, pady=(22, 10))
         tabs = ttk.Notebook(self)
         tabs.grid(row=1, column=0, sticky="nsew", padx=24)
-        basic, limits = ttk.Frame(tabs, padding=16), ttk.Frame(tabs, padding=16)
-        tabs.add(basic, text="기본 정보")
-        tabs.add(limits, text="용량·전송 설정")
+        basic_view, limits_view = ScrollFrame(tabs, padding=16), ScrollFrame(tabs, padding=16)
+        basic, limits = basic_view.content, limits_view.content
+        tabs.add(basic_view, text="기본 정보")
+        tabs.add(limits_view, text="용량·전송 설정")
+        self.views = (basic_view, limits_view)
         for frame in (basic, limits):
             frame.columnconfigure(1, weight=1)
         identity, port = (self.config.instance_id, self.config.port) if path else manager.catalog.suggest()
@@ -96,6 +100,13 @@ class CourseDialog(tk.Toplevel):
         self.cancel_button.pack(side="right")
         self.name_entry.focus_set()
         self.bind("<Escape>", lambda _: self.close())
+        for frame in (basic, limits):
+            frame.bind("<Configure>", self.wrap_labels, add="+")
+
+    def wrap_labels(self, event):
+        for label in event.widget.winfo_children():
+            if isinstance(label, ttk.Label) and int(label.grid_info().get("columnspan", 1)) > 1:
+                label.configure(wraplength=max(160, event.width - 40))
 
     def choose_folder(self):
         value = filedialog.askdirectory(parent=self, title="새 과정에 사용할 비어 있는 폴더")
@@ -163,36 +174,29 @@ class ServerManager:
         self.addresses = []
         self.root.title("AssignmentHub · 서버 관리")
         self.root.geometry("1100x760")
-        self.root.minsize(920, 680)
-        self.root.configure(background="#f3f6f4")
-        style = ttk.Style(root)
-        style.theme_use("clam")
-        style.configure(".", font=("Malgun Gothic", 10), background="#f3f6f4")
-        style.configure("TButton", padding=(12, 8))
-        style.configure("Primary.TButton", background="#17684f", foreground="white")
-        style.map("Primary.TButton", background=[("active", "#215c48"), ("disabled", "#c0cbc5")])
-        style.configure("Heading.TLabel", font=("Malgun Gothic", 17, "bold"), foreground="#183e2e")
-        style.configure("Muted.TLabel", foreground="#50675b")
-        style.configure("Treeview", rowheight=38, background="white", fieldbackground="white")
-        style.configure("Treeview.Heading", font=("Malgun Gothic", 10, "bold"), padding=8)
-        outer = ttk.Frame(root, padding=24)
-        outer.pack(fill="both", expand=True)
+        self.root.minsize(640, 520)
+        apply_theme(root)
+        self.viewport = ScrollFrame(root, padding=24)
+        self.viewport.pack(fill="both", expand=True)
+        outer = self.viewport.content
         outer.columnconfigure(0, weight=1)
         outer.rowconfigure(3, weight=1)
-        ttk.Label(outer, text="AssignmentHub  서버 관리", style="Heading.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Label(outer, text="과정을 만들고 서버를 시작한 뒤, 접속 주소를 수강생에게 안내하세요.", style="Muted.TLabel").grid(row=1, column=0, sticky="w", pady=(6, 18))
+        heading = ttk.Frame(outer)
+        heading.grid(row=0, column=0, sticky="ew")
+        ttk.Label(heading, text="AH  /  AssignmentHub", style="Brand.TLabel").pack(anchor="w", pady=(0, 14))
+        ttk.Label(heading, text="수업 서버", style="Heading.TLabel").pack(anchor="w")
+        self.subtitle = ttk.Label(outer, text="과정을 선택하고 서버를 시작하세요. 접속 주소로 수강생을 초대할 수 있습니다.", style="Muted.TLabel")
+        self.subtitle.grid(row=1, column=0, sticky="ew", pady=(6, 22))
         toolbar = ttk.Frame(outer)
         toolbar.grid(row=2, column=0, sticky="ew", pady=(0, 12))
         self.new_button = ttk.Button(toolbar, text="+ 새 과정 만들기", style="Primary.TButton", command=lambda: self.guarded(lambda: CourseDialog(self)))
-        self.new_button.pack(side="left")
-        ttk.Button(toolbar, text="기존 설정 추가…", command=self.import_config).pack(side="left", padx=8)
-        ttk.Button(toolbar, text="새로고침", command=self.refresh).pack(side="left")
-        ttk.Button(toolbar, text="사용 방법", command=self.help).pack(side="right")
+        self.toolbar_buttons = [self.new_button, ttk.Button(toolbar, text="기존 설정 추가…", command=self.import_config),
+                                ttk.Button(toolbar, text="새로고침", command=self.refresh), ttk.Button(toolbar, text="사용 방법", command=self.help)]
         table = ttk.Frame(outer)
         table.grid(row=3, column=0, sticky="nsew")
         table.columnconfigure(0, weight=1)
         table.rowconfigure(0, weight=1)
-        self.tree = ttk.Treeview(table, columns=("name", "state", "address"), show="headings", selectmode="browse", height=6)
+        self.tree = ttk.Treeview(table, columns=("name", "state", "address"), show="headings", selectmode="browse", height=4)
         for key, label, width in (("name", "과정", 285), ("state", "서버 상태", 120), ("address", "수강생 접속 주소", 410)):
             self.tree.heading(key, text=label)
             self.tree.column(key, width=width, minwidth=100, stretch=True)
@@ -200,38 +204,70 @@ class ServerManager:
         scroll = ttk.Scrollbar(table, orient="vertical", command=self.tree.yview)
         scroll.grid(row=0, column=1, sticky="ns")
         self.tree.configure(yscrollcommand=scroll.set)
+        horizontal = ttk.Scrollbar(table, orient="horizontal", command=self.tree.xview)
+        horizontal.grid(row=1, column=0, sticky="ew")
+        self.tree.configure(xscrollcommand=horizontal.set)
+        self.empty_state = tk.Frame(self.tree, background="white")
+        tk.Label(self.empty_state, text="아직 등록된 과정이 없습니다", background="white", foreground="#414c63",
+                 font=("Malgun Gothic", 12, "bold")).pack(pady=(0, 6))
+        tk.Label(self.empty_state, text="새 과정 만들기로 첫 수업을 준비하세요.", background="white", foreground="#647087",
+                 font=("Malgun Gothic", 10)).pack()
         self.tree.tag_configure("error", foreground="#a32c28")
         self.tree.tag_configure("running", foreground="#17684f")
         self.tree.bind("<<TreeviewSelect>>", lambda _: self.selection())
         self.tree.bind("<Double-1>", lambda _: self.open_browser())
         self.summary = tk.StringVar(value="처음 사용하는 경우 '+ 새 과정 만들기'를 누르세요.")
-        ttk.Label(outer, textvariable=self.summary, wraplength=1010).grid(row=4, column=0, sticky="ew", pady=(16, 10))
+        self.summary_label = ttk.Label(outer, textvariable=self.summary, wraplength=1010)
+        self.summary_label.grid(row=4, column=0, sticky="ew", pady=(16, 10))
         address = ttk.Frame(outer)
         address.grid(row=5, column=0, sticky="ew")
         address.columnconfigure(0, weight=1)
         self.url = tk.StringVar()
-        ttk.Entry(address, textvariable=self.url, state="readonly", font=("Malgun Gothic", 12)).grid(row=0, column=0, sticky="ew", ipady=6)
+        self.address_entry = ttk.Entry(address, textvariable=self.url, state="readonly", font=("Segoe UI", 11))
         self.copy_button = ttk.Button(address, text="주소 복사", command=self.copy_url)
-        self.copy_button.grid(row=0, column=1, padx=(8, 0))
         self.browser_button = ttk.Button(address, text="관리자 화면 열기 ↗", command=self.open_browser)
-        self.browser_button.grid(row=0, column=2, padx=(8, 0))
         actions = ttk.Frame(outer)
         actions.grid(row=6, column=0, sticky="ew", pady=14)
         self.buttons = {}
         for key, label, callback in (("start", "▶ 서버 시작", lambda: self.operate("start")), ("stop", "■ 서버 중지", lambda: self.operate("stop")), ("settings", "과정 설정", self.settings), ("diagnose", "접속·오류 점검", self.inspect), ("storage", "저장 폴더", lambda: self.folder(False)), ("logs", "로그 폴더", lambda: self.folder(True))):
             button = ttk.Button(actions, text=label, command=callback, **({"style": "Primary.TButton"} if key == "start" else {}))
-            button.pack(side="left", padx=(0, 7))
             self.buttons[key] = button
         self.progress = ttk.Progressbar(outer, mode="indeterminate")
         self.progress.grid(row=7, column=0, sticky="ew", pady=(0, 8))
         self.notice = tk.StringVar(value="과정 목록을 확인하고 있습니다…")
-        ttk.Label(outer, textvariable=self.notice, wraplength=1010, style="Muted.TLabel").grid(row=8, column=0, sticky="ew")
-        ttk.Label(outer, text="관리창을 닫아도 실행 중인 서버는 유지됩니다. 서버를 끝내려면 해당 과정의 '서버 중지'를 누르세요.", style="Muted.TLabel").grid(row=9, column=0, sticky="w", pady=(14, 0))
+        self.notice_label = ttk.Label(outer, textvariable=self.notice, wraplength=1010, style="Muted.TLabel")
+        self.notice_label.grid(row=8, column=0, sticky="ew")
+        self.footer = ttk.Label(outer, text="관리창을 닫아도 서버는 유지됩니다. 수업이 끝나면 '서버 중지'를 눌러 주세요.", style="Muted.TLabel")
+        self.footer.grid(row=9, column=0, sticky="ew", pady=(16, 0))
+        self._compact = None
+        outer.bind("<Configure>", self.reflow, add="+")
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(100, self.poll)
         self.root.after(5000, self.auto_refresh)
         self.submit("네트워크 주소 확인", network_addresses, lambda result: setattr(self, "addresses", result))
         self.refresh()
+
+    def reflow(self, event):
+        width = max(200, event.width - 48)
+        for label in (self.subtitle, self.summary_label, self.notice_label, self.footer):
+            label.configure(wraplength=width)
+        self.viewport.layout()
+        compact = width < 930
+        if compact == self._compact:
+            return
+        self._compact = compact
+        columns = 3 if compact else 6
+        for i, button in enumerate(self.buttons.values()):
+            button.grid(row=i // columns, column=i % columns, sticky="ew", padx=(0, 8), pady=(0, 8))
+        for i in range(6):
+            button.master.columnconfigure(i, weight=1 if i < columns else 0)
+        for i, button in enumerate(self.toolbar_buttons):
+            button.grid(row=i // (2 if compact else 4), column=i % (2 if compact else 4), sticky="ew", padx=(0, 8), pady=(0, 8))
+        for i in range(4):
+            button.master.columnconfigure(i, weight=1 if i < (2 if compact else 4) else 0)
+        self.address_entry.grid(row=0, column=0, columnspan=3 if compact else 1, sticky="ew")
+        self.copy_button.grid(row=1 if compact else 0, column=1, sticky="ew", padx=(8, 0), pady=(8, 0) if compact else 0)
+        self.browser_button.grid(row=1 if compact else 0, column=2, sticky="ew", padx=(8, 0), pady=(8, 0) if compact else 0)
 
     def guarded(self, callback):
         try:
@@ -293,6 +329,10 @@ class ServerManager:
         self.refresh_failed = False
         selected = str(self.selected_path) if self.selected_path else next(iter(self.tree.selection()), None)
         self.courses = {str(c.path): c for c in courses}
+        if courses:
+            self.empty_state.place_forget()
+        else:
+            self.empty_state.place(relx=.5, rely=.58, anchor="center")
         self.tree.delete(*self.tree.get_children())
         for key, course in self.courses.items():
             config = course.config
@@ -395,12 +435,21 @@ class ServerManager:
     def text_window(self, title, text):
         window = tk.Toplevel(self.root)
         window.title(title)
+        window.configure(background="#f7f8fc")
         window.geometry("800x550")
-        area = tk.Text(window, wrap="word", padx=20, pady=20, font=("Malgun Gothic", 11))
+        window.minsize(440, 320)
+        ttk.Label(window, text=title, style="Heading.TLabel").pack(anchor="w", padx=24, pady=20)
+        content = ttk.Frame(window)
+        content.pack(fill="both", expand=True, padx=24)
+        area = tk.Text(content, wrap="word", padx=20, pady=20, font=("Malgun Gothic", 11),
+                       background="white", foreground="#202539", relief="flat", spacing3=8)
+        scroll = ttk.Scrollbar(content, command=area.yview)
+        scroll.pack(side="right", fill="y")
+        area.configure(yscrollcommand=scroll.set)
         area.insert("1.0", text)
         area.configure(state="disabled")
         area.pack(fill="both", expand=True)
-        ttk.Button(window, text="닫기", command=window.destroy).pack(pady=12)
+        ttk.Button(window, text="닫기", command=window.destroy).pack(side="bottom", before=content, pady=12)
 
     def help(self):
         self.text_window("서버 사용 방법", "처음 사용하는 경우\n1. 새 과정 만들기에서 과정명과 관리자 비밀번호를 입력합니다.\n2. 수강생에게 안내할 IP를 확인하고 과정을 만듭니다.\n3. 서버 시작 → 관리자 화면 열기 → 사용자 명단을 등록합니다.\n4. 주소 복사로 수강생에게 접속 주소를 안내합니다.\n\n다음 수업부터\n목록에서 과정을 선택하고 서버 시작을 누릅니다.\n\n다른 PC에서 접속이 안 될 때\n서버가 실행 중인지, 안내 IP가 현재 PC의 주소인지 확인하고 접속·오류 점검을 실행하세요. 교육장 네트워크와 방화벽의 해당 포트 접근도 확인해야 합니다.\n\n수업이 끝난 뒤\n해당 과정을 선택하고 서버 중지를 누릅니다. 관리창을 닫는 것만으로 서버가 꺼지지는 않습니다.\n\n백업\n서버 중지 후 설정 JSON과 저장 폴더 전체를 같은 시점으로 복사합니다. 복원 절차는 docs/admin-guide.md를 참고하세요.")

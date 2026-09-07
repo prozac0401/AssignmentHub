@@ -13,12 +13,18 @@ async function main(){
  context.on('page',p=>p.on('pageerror',e=>errors.push(e.message)));
  admin.on('pageerror',e=>errors.push(e.message));
  let student,upload;
- const shot=async(p,name,extra=[])=>{await p.waitForTimeout(600);assert.equal(await p.locator('[data-testid="stException"]').count(),0);await p.screenshot({path:path.join(f.output,name+'.png'),fullPage:false,mask:[p.locator('input[type="password"]'),...extra],maskColor:'#DCE5DC'});console.log('Captured '+name);};
+ const shot=async(p,name,extra=[])=>{await p.waitForTimeout(600);assert.equal(await p.locator('[data-testid="stException"]').count(),0);await p.screenshot({path:path.join(f.output,name+'.png'),fullPage:false,mask:[p.locator('input[type="password"]'),...extra],maskColor:'#E3E7EF'});console.log('Captured '+name);};
+ const responsiveChecks=[];
+ const responsive=async(p,label,widths)=>{for(const width of widths){await p.setViewportSize({width,height:900});await p.waitForTimeout(350);
+  const overflow=await p.evaluate(()=>{const nodes=[document.documentElement,document.querySelector('[data-testid="stMain"]')].filter(Boolean);return nodes.some(n=>n.scrollWidth>n.clientWidth+2);});
+  assert.equal(overflow,false,label+' overflows at '+width);responsiveChecks.push({screen:label,width,horizontal_overflow:false});}
+  await p.setViewportSize({width:1280,height:900});};
  const nav=async(name)=>{await admin.locator('[data-testid="stSidebar"]').getByText(name,{exact:true}).click();await admin.waitForTimeout(700);};
  const login=async(p,id,password)=>{await p.goto(f.url);await p.getByRole('textbox',{name:'로그인 ID',exact:true}).fill(id);await p.getByRole('textbox',{name:'비밀번호',exact:true}).fill(password);await p.getByRole('button',{name:'로그인',exact:true}).click();await p.getByRole('button',{name:'로그아웃',exact:true}).waitFor({timeout:60000});};
  try{
   await admin.goto(f.url);await admin.getByRole('textbox',{name:'로그인 ID',exact:true}).fill('admin');
   await shot(admin,'06-admin-login');
+  await responsive(admin,'login',[360,390,600,768,1024,1440]);
   await admin.getByRole('textbox',{name:'비밀번호',exact:true}).fill(f.password);await admin.getByRole('button',{name:'로그인',exact:true}).click();
   await admin.getByRole('button',{name:'명단 등록·사용자 관리로 이동',exact:true}).waitFor({timeout:60000});
   await shot(admin,'07-admin-home');
@@ -37,7 +43,7 @@ async function main(){
   const studentRow=rows.find(r=>r[idIndex]==='001');assert(studentRow,'Text student ID 001 preserved');
   const initial=studentRow[index];secrets.push(...rows.map(r=>r[index]));
   await admin.getByRole('button',{name:'임시비밀번호 결과 닫기',exact:true}).click();
-  await admin.getByRole('button',{name:'임시비밀번호 결과 닫기',exact:true}).waitFor({state:'hidden'});
+  await admin.waitForFunction(()=>[...document.querySelectorAll('button')].every(button=>button.innerText.trim()!=='임시비밀번호 결과 닫기'));
   await admin.waitForTimeout(700);
   await admin.getByRole('heading',{name:'사용자 계정 관리',exact:true}).scrollIntoViewIfNeeded();
   await shot(admin,'09-users-registered');
@@ -68,11 +74,18 @@ async function main(){
   await upload.locator('#bridge').fill(code);await upload.getByRole('button',{name:'코드로 연결',exact:true}).click();
   await upload.locator('#workspace').waitFor({state:'visible'});
   await upload.locator('#assignment').selectOption({label:'1주차 실습 과제'});
+  const dropped=await upload.evaluateHandle(()=>{const transfer=new DataTransfer();transfer.items.add(new File(['sample'],'아주_긴_이름의_과제_제출_파일_'.repeat(6)+'.txt',{type:'text/plain'}));return transfer;});
+  await upload.locator('.drop-zone').dispatchEvent('drop',{dataTransfer:dropped});await dropped.dispose();
+  assert.equal(await upload.evaluate(()=>state.selected.length),1);
+  assert.equal(await upload.locator('#start').isEnabled(),true);
+  await responsive(upload,'uploader-long-filename',[360,390,600,768,1024,1440]);
   const sample=path.join(f.work,'1주차_실습결과.txt');
   const data=Buffer.from('파이썬 기초 실습 과제\n학생 001의 예시 제출 파일입니다.\n'.repeat(150000));fs.writeFileSync(sample,data);
   const digest=crypto.createHash('sha256').update(data).digest('hex');
   await upload.locator('#files').setInputFiles(sample);
   await shot(upload,'14-file-selected');
+  await upload.setViewportSize({width:390,height:920});await upload.evaluate(()=>window.scrollTo(0,0));await shot(upload,'23-upload-mobile');
+  await upload.setViewportSize({width:1280,height:900});
   let interrupted=false,signal;const reached=new Promise(r=>signal=r);
   await upload.route('**/api/uploads/*/files/*?offset=*',async route=>{if(!interrupted&&Number(new URL(route.request().url()).searchParams.get('offset'))>0){interrupted=true;await route.abort('connectionreset');signal();}else await route.continue();});
   await upload.locator('#start').click();
@@ -94,6 +107,9 @@ async function main(){
   await admin.getByRole('combobox').first().click();await admin.getByRole('option',{name:'1주차 실습 과제',exact:true}).click();
   await admin.getByRole('heading',{name:'제출 현황',exact:true}).waitFor();
   await admin.waitForTimeout(500);await admin.evaluate(()=>window.scrollTo(0,0));await shot(admin,'19-admin-dashboard');
+  await responsive(admin,'admin-dashboard',[360,390,600,768,1024,1440]);
+  await admin.setViewportSize({width:768,height:1024});await shot(admin,'24-dashboard-tablet');
+  await admin.setViewportSize({width:1280,height:900});
   await nav('저장 공간·기록');await admin.getByRole('heading',{name:'저장 공간과 운영 기록',exact:true}).waitFor();
   await shot(admin,'20-storage-audit');
   assert.deepEqual(errors,[]);
@@ -101,7 +117,7 @@ async function main(){
    ui_roster_import:true,private_csv_download:true,assignment_created:true,first_password_changed:true,one_time_bridge:true,
    network_interruption_simulated:'Second chunk aborted by Playwright; subsequent transfer uses real server responses',
    browser_reload_resume:true,confirmed_bytes_before_reload:confirmed,file_bytes:data.length,download_sha256:digest,
-   download_matches_original:true,javascript_errors:0,screenshots:Object.keys(fs.readdirSync(f.output)).length};
+   download_matches_original:true,javascript_errors:0,drag_and_drop:true,responsive_checks:responsiveChecks,screenshots:fs.readdirSync(f.output).filter(n=>n.endsWith('.png')).length};
   fs.writeFileSync(path.join(f.output,'..','walkthrough.json'),JSON.stringify(report,null,2));
   console.log(JSON.stringify({passed:true,file_bytes:data.length,download_matches_original:true}));
  }catch(error){

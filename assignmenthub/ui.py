@@ -6,6 +6,7 @@ import html
 import io
 import json
 import os
+from pathlib import Path
 from datetime import datetime, timezone
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -89,7 +90,7 @@ def private_csv_download(label: str, data: bytes, filename: str):
     payload = json.dumps(data.decode("utf-8-sig"), ensure_ascii=True).replace("<", "\\u003c")
     output_name = json.dumps(filename, ensure_ascii=True).replace("<", "\\u003c")
     components.html(
-        '<button id="download" type="button" style="border:1px solid #166b50;border-radius:6px;background:white;color:#166b50;padding:9px 15px;cursor:pointer">'
+        '<button id="download" type="button" style="font:13px Segoe UI,Malgun Gothic,sans-serif;border:1px solid #d5dbe8;border-radius:8px;background:white;color:#414c63;padding:11px 15px;cursor:pointer">'
         + html.escape(label) + '</button><script>'
         + f'const csv={payload};const filename={output_name};'
         + "document.getElementById('download').onclick=()=>{"
@@ -108,7 +109,13 @@ def clear_session():
 
 
 def login():
-    left, main, right = st.columns([1, 2, 1])
+    left, main = st.columns([1, 1], gap="large")
+    with left:
+        st.markdown('''<div class="ah-login-intro"><div class="ah-eyebrow">YOUR CLASS WORKSPACE</div>
+<h2>과제 제출부터 확인까지,<br>한 곳에서 간편하게.</h2>
+<p>수업의 파일과 제출 기록을 함께 관리하세요.<br>전송이 끊겨도 같은 파일로 이어 올릴 수 있습니다.</p>
+<div class="ah-login-steps"><div><span>01</span>전달받은 계정으로 로그인</div>
+<div><span>02</span>과제를 선택하고 파일 제출</div><div><span>03</span>제출번호로 완료 확인</div></div></div>''', unsafe_allow_html=True)
     with main:
         st.markdown("### 수강생·관리자 로그인")
         st.caption("관리자가 등록한 계정으로 로그인하세요. 처음이라면 전달받은 임시비밀번호를 입력하세요.")
@@ -148,8 +155,8 @@ def file_download(file: dict, key: str):
         components.html(
             '<form action="/api/downloads" method="post" target="_blank">'
             f'<input type="hidden" name="ticket" value="{ticket}">'
-            '<button style="border:1px solid #166b50;border-radius:6px;background:#166b50;color:white;padding:8px 14px;cursor:pointer" type="submit">파일 다운로드</button>'
-            '<span style="font:12px sans-serif;color:#607468;margin-left:10px">일회용 링크 · 만료되면 다시 준비하세요</span></form>',
+            '<button style="font:13px Segoe UI,Malgun Gothic,sans-serif;border:1px solid #4f46e5;border-radius:8px;background:#4f46e5;color:white;padding:10px 14px;cursor:pointer" type="submit">파일 다운로드</button>'
+            '<span style="font:12px sans-serif;color:#647087;margin-left:10px">일회용 링크 · 만료되면 다시 준비하세요</span></form>',
             height=54,
         )
 
@@ -186,8 +193,8 @@ def student_home():
     else:
         st.info("등록된 과제가 없습니다.")
     with st.container(border=True):
-        st.markdown("**브라우저에서 파일을 직접 전송합니다.**")
-        st.write("아래에서 일회용 연결 코드를 발급한 뒤 제출 화면에 입력하세요. 제출 화면에서 같은 계정으로 다시 로그인해도 됩니다.")
+        st.markdown("**파일 제출 준비**")
+        st.write("연결 코드를 발급한 뒤 파일 제출 화면에 입력하세요. 같은 계정으로 로그인할 수도 있습니다.")
         if st.button("일회용 연결 코드 발급", type="primary"):
             bridge = call("/auth/bridge", "POST")
             st.session_state.bridge = bridge
@@ -391,12 +398,15 @@ def admin_storage():
 
 def main():
     st.set_page_config(page_title="AssignmentHub", page_icon="📁", layout="wide")
-    st.markdown("""<style>.stApp{background:#f5f7f3}div[data-testid="stMetric"]{background:white;border:1px solid #dce5dc;border-radius:12px;padding:18px}section[data-testid="stSidebar"]{background:#eef3ec}.block-container{padding-top:2.5rem;max-width:1280px}h1,h2,h3{color:#183e2e}a{color:#166b50}</style>""", unsafe_allow_html=True)
+    st.markdown("<style>" + (Path(__file__).parent / "static" / "console.css").read_text(encoding="utf-8") + "</style>", unsafe_allow_html=True)
     try:
         if "info" not in st.session_state:
             st.session_state.info = call("/info")
         info = st.session_state.info
-        st.caption("ASSIGNMENTHUB · 로컬 과제 제출·관리")
+        if not st.session_state.get("token"):
+            st.markdown('<div class="ah-brand"><span class="ah-mark">AH</span>AssignmentHub</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="ah-eyebrow">CLASS WORKSPACE</div>', unsafe_allow_html=True)
         st.title(info.get("course_name", "AssignmentHub"))
         if st.session_state.get("flash"):
             st.success(st.session_state.pop("flash"))
@@ -406,7 +416,7 @@ def main():
         user = call("/auth/me")
         st.session_state.user = user
         with st.sidebar:
-            st.markdown("## AssignmentHub")
+            st.markdown('<div class="ah-brand"><span class="ah-mark">AH</span>AssignmentHub</div>', unsafe_allow_html=True)
             st.write(user["name"])
             st.caption(user["user_id"] + (" · 관리자" if user["role"] == "admin" else " · 수강생"))
             st.caption(info.get("instance_id", ""))

@@ -83,6 +83,18 @@ def main():
         manager.copy_button.invoke()
         assert root.clipboard_get() == config.public_url
         capture(root, root, output / "04-server-running.png")
+        root.geometry("640x520")
+        root.update()
+        manager.viewport.canvas.yview_moveto(1)
+        root.update()
+        for button in manager.buttons.values():
+            assert 0 <= button.winfo_rootx() - root.winfo_rootx()
+            assert button.winfo_rootx() + button.winfo_width() <= root.winfo_rootx() + root.winfo_width()
+            assert button.winfo_rooty() + button.winfo_height() <= root.winfo_rooty() + root.winfo_height()
+        capture(root, root, output / "22-manager-compact.png")
+        root.geometry("1100x760")
+        root.update()
+        manager.viewport.canvas.yview_moveto(0)
         manager.buttons["diagnose"].invoke()
         pump(root, lambda: not manager.jobs and any(isinstance(w, tk.Toplevel) for w in root.winfo_children()))
         diagnostic = next(w for w in root.winfo_children() if isinstance(w, tk.Toplevel))
@@ -103,7 +115,7 @@ def main():
         capture(root, root, output / "21-server-stopped.png")
         report_path = output.parent / "walkthrough.json"
         report = json.loads(report_path.read_text(encoding="utf-8"))
-        report.update(screenshots=21, server_stopped=True,
+        report.update(screenshots=len(list(output.glob('*.png'))), server_stopped=True, native_compact_viewport=[640, 520],
                       native_manager="Real Tk window and real widget callbacks; confirmation supplied within isolated test process")
         report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         print(json.dumps({"passed": True, "screenshots": len(list(output.glob('*.png'))),

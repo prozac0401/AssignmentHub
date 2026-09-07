@@ -182,6 +182,10 @@ $('login-form').onsubmit=async e=>{e.preventDefault();const button=e.target.quer
 $('bridge-form').onsubmit=async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;try{await authenticate(await api('/auth/exchange',{method:'POST',json:{code:$('bridge').value.trim()}}));}catch(error){notice(error.message,true);}finally{button.disabled=false;}};
 $('logout').onclick=async()=>{try{await api('/auth/logout',{method:'POST'});}catch(error){notice(error.message,true);return;}state.token=null;state.user=null;fresh();hidden('workspace');hidden('auth',false);notice('로그아웃했습니다.');};
 $('files').onchange=()=>{state.selected=Array.from($('files').files);state.manifest=null;state.requestId=null;if(!state.resume)state.upload=null;notice('');selection();};
+const dropZone=document.querySelector('.drop-zone');
+for(const event of ['dragenter','dragover'])dropZone.addEventListener(event,e=>{e.preventDefault();if(!$('files').disabled)dropZone.classList.add('dragging');});
+for(const event of ['dragleave','drop'])dropZone.addEventListener(event,e=>{e.preventDefault();dropZone.classList.remove('dragging');});
+dropZone.addEventListener('drop',e=>{if($('files').disabled||!e.dataTransfer.files.length)return;$('files').files=e.dataTransfer.files;$('files').dispatchEvent(new Event('change',{bubbles:true}));});
 $('assignment').onchange=()=>{const a=state.assignments.find(v=>v.id===$('assignment').value);$('assignment-description').textContent=a?.description||'';state.requestId=null;state.upload=null;selection();};
 $('start').onclick=run;$('retry').onclick=run;$('pause').onclick=stop;$('fresh').onclick=fresh;
 $('refresh').onclick=()=>refresh().catch(error=>notice(error.message,true));

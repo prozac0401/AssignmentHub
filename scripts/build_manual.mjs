@@ -18,7 +18,7 @@ const {finalizePresentation,resolvePresentationFont}=await import(pathToFileURL(
 const font=resolvePresentationFont({fontFamily:'Malgun Gothic'});
 const presentation=Presentation.create({slideSize:{width:1600,height:900}});
 const content=JSON.parse(await fs.readFile(path.join(out,'slides.json'),'utf8'));
-const dark='#183E2E',green='#17684F',muted='#52665B';
+const dark='#202539',green='#4F46E5',muted='#647087';
 function wrapWords(value,width,size){
  const measure=s=>Array.from(s).reduce((n,c)=>n+(/\s/.test(c)?0.35:c.codePointAt(0)>255?1:0.57),0)*size;
  const lines=[];let line='';
@@ -32,7 +32,7 @@ function text(slide,value,x,y,w,h,size=28,bold=false,color=dark){
  return shape;
 }
 function base(title,page){const slide=presentation.slides.add();slide.background.fill='#FFFFFF';text(slide,title,64,40,1435,92,56,true);text(slide,String(page).padStart(2,'0'),1500,830,55,35,23,false,muted);return slide;}
-const cover=presentation.slides.add();cover.background.fill='#F1F6EF';
+const cover=presentation.slides.add();cover.background.fill='#F0F2FF';
 text(cover,'AssignmentHub',92,208,1390,120,94,true);
 text(cover,'사용자 매뉴얼',98,343,1370,85,60,true);
 text(cover,'서버 운영과 학생의 과제 제출',100,470,1350,55,34,false,green);

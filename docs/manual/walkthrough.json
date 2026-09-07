@@ -1,7 +1,7 @@
 {
   "passed": true,
   "browser": "152.0.4191.66",
-  "captured_at": "2026-09-07T18:25:47.105Z",
+  "captured_at": "2026-09-07T18:54:01.448Z",
   "fictional_course": "파이썬 기초 실습",
   "student_id": "001",
   "ui_roster_import": true,
@@ -16,7 +16,104 @@
   "download_sha256": "3be936fd51c3a90b8738812ee9a9926fced748f3d481d0e81eb27e3c9ada4314",
   "download_matches_original": true,
   "javascript_errors": 0,
-  "screenshots": 21,
+  "drag_and_drop": true,
+  "responsive_checks": [
+    {
+      "screen": "login",
+      "width": 360,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "login",
+      "width": 390,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "login",
+      "width": 600,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "login",
+      "width": 768,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "login",
+      "width": 1024,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "login",
+      "width": 1440,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "uploader-long-filename",
+      "width": 360,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "uploader-long-filename",
+      "width": 390,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "uploader-long-filename",
+      "width": 600,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "uploader-long-filename",
+      "width": 768,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "uploader-long-filename",
+      "width": 1024,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "uploader-long-filename",
+      "width": 1440,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "admin-dashboard",
+      "width": 360,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "admin-dashboard",
+      "width": 390,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "admin-dashboard",
+      "width": 600,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "admin-dashboard",
+      "width": 768,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "admin-dashboard",
+      "width": 1024,
+      "horizontal_overflow": false
+    },
+    {
+      "screen": "admin-dashboard",
+      "width": 1440,
+      "horizontal_overflow": false
+    }
+  ],
+  "screenshots": 24,
   "server_stopped": true,
+  "native_compact_viewport": [
+    640,
+    520
+  ],
   "native_manager": "Real Tk window and real widget callbacks; confirmation supplied within isolated test process"
 }
