@@ -1,0 +1,232 @@
+{
+  "runs": [
+    {
+      "mode": "same-user",
+      "method": "real HTTP through public gateway; browser not exercised",
+      "environment": {
+        "os": "Windows-11-10.0.22631-SP0",
+        "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+        "httpx": "0.28.1",
+        "psutil": "7.0.0",
+        "installed_versions": {
+          "fastapi": "0.116.1",
+          "starlette": "0.47.3",
+          "uvicorn": "0.35.0",
+          "streamlit": "1.49.1",
+          "argon2-cffi": "25.1.0",
+          "openpyxl": "3.1.5"
+        },
+        "logical_cpus": 4,
+        "physical_memory_bytes": 17060524032
+      },
+      "file_bytes": 2147483648,
+      "concurrency": 4,
+      "observed_transfer_overlap": 4,
+      "elapsed_seconds": 603.86,
+      "success_count": 4,
+      "failure_count": 0,
+      "files": [
+        {
+          "worker": 1,
+          "source_bytes": 2147483648,
+          "source_sha256": "3d208058213350d3da66c0d2559ff49b2bcb658b3d70a649c4f85a41941c767e",
+          "stored_bytes": 2147483648,
+          "stored_sha256": "3d208058213350d3da66c0d2559ff49b2bcb658b3d70a649c4f85a41941c767e",
+          "download_bytes": 2147483648,
+          "download_sha256": "3d208058213350d3da66c0d2559ff49b2bcb658b3d70a649c4f85a41941c767e",
+          "success": true,
+          "completion_idempotent": true,
+          "post_restart": {
+            "success": true,
+            "bytes": 2147483648,
+            "sha256": "3d208058213350d3da66c0d2559ff49b2bcb658b3d70a649c4f85a41941c767e"
+          }
+        },
+        {
+          "worker": 2,
+          "source_bytes": 2147483648,
+          "source_sha256": "4d4cc29dc3bccda054b83ad247d2c28edb0243b17de8c719b617acb648df1e67",
+          "stored_bytes": 2147483648,
+          "stored_sha256": "4d4cc29dc3bccda054b83ad247d2c28edb0243b17de8c719b617acb648df1e67",
+          "download_bytes": 2147483648,
+          "download_sha256": "4d4cc29dc3bccda054b83ad247d2c28edb0243b17de8c719b617acb648df1e67",
+          "success": true,
+          "completion_idempotent": true,
+          "post_restart": {
+            "success": true,
+            "bytes": 2147483648,
+            "sha256": "4d4cc29dc3bccda054b83ad247d2c28edb0243b17de8c719b617acb648df1e67"
+          }
+        },
+        {
+          "worker": 3,
+          "source_bytes": 2147483648,
+          "source_sha256": "712fed31ae845c8aaa7e30aeae34be22a054b9c2cd328e597cfc332682b29752",
+          "stored_bytes": 2147483648,
+          "stored_sha256": "712fed31ae845c8aaa7e30aeae34be22a054b9c2cd328e597cfc332682b29752",
+          "download_bytes": 2147483648,
+          "download_sha256": "712fed31ae845c8aaa7e30aeae34be22a054b9c2cd328e597cfc332682b29752",
+          "success": true,
+          "completion_idempotent": true,
+          "post_restart": {
+            "success": true,
+            "bytes": 2147483648,
+            "sha256": "712fed31ae845c8aaa7e30aeae34be22a054b9c2cd328e597cfc332682b29752"
+          }
+        },
+        {
+          "worker": 4,
+          "source_bytes": 2147483648,
+          "source_sha256": "76a5ce373b1818ae194e257b56661b1f1ff4da9dd39aa48f871d34c6fa99dcd9",
+          "stored_bytes": 2147483648,
+          "stored_sha256": "76a5ce373b1818ae194e257b56661b1f1ff4da9dd39aa48f871d34c6fa99dcd9",
+          "download_bytes": 2147483648,
+          "download_sha256": "76a5ce373b1818ae194e257b56661b1f1ff4da9dd39aa48f871d34c6fa99dcd9",
+          "success": true,
+          "completion_idempotent": true,
+          "post_restart": {
+            "success": true,
+            "bytes": 2147483648,
+            "sha256": "76a5ce373b1818ae194e257b56661b1f1ff4da9dd39aa48f871d34c6fa99dcd9"
+          }
+        }
+      ],
+      "measurement": {
+        "baseline_rss_bytes": 294899712,
+        "peak_tree_rss_bytes": 304238592,
+        "rss_growth_bytes": 9338880,
+        "peak_temp_bytes": 8589934592,
+        "sample_interval_seconds": 0.25,
+        "measurement_errors": []
+      },
+      "observed_process_names": [
+        "caddy.exe",
+        "conhost.exe",
+        "python.exe"
+      ],
+      "observed_process_count": 9,
+      "accounts_measured": 1,
+      "used_bytes_per_account": [
+        8589934592
+      ],
+      "reserved_bytes_per_account": [
+        0
+      ],
+      "unique_submission_count": 4,
+      "post_restart_all_match": true
+    },
+    {
+      "mode": "separate-users",
+      "method": "real HTTP through public gateway; browser not exercised",
+      "environment": {
+        "os": "Windows-11-10.0.22631-SP0",
+        "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+        "httpx": "0.28.1",
+        "psutil": "7.0.0",
+        "logical_cpus": 4,
+        "physical_memory_bytes": 17060524032
+      },
+      "file_bytes": 2147483648,
+      "concurrency": 4,
+      "observed_transfer_overlap": 4,
+      "elapsed_seconds": 727.875,
+      "success_count": 4,
+      "failure_count": 0,
+      "files": [
+        {
+          "worker": 1,
+          "source_bytes": 2147483648,
+          "source_sha256": "3d208058213350d3da66c0d2559ff49b2bcb658b3d70a649c4f85a41941c767e",
+          "stored_bytes": 2147483648,
+          "stored_sha256": "3d208058213350d3da66c0d2559ff49b2bcb658b3d70a649c4f85a41941c767e",
+          "download_bytes": 2147483648,
+          "download_sha256": "3d208058213350d3da66c0d2559ff49b2bcb658b3d70a649c4f85a41941c767e",
+          "success": true,
+          "completion_idempotent": true,
+          "post_restart": {
+            "success": true,
+            "bytes": 2147483648,
+            "sha256": "3d208058213350d3da66c0d2559ff49b2bcb658b3d70a649c4f85a41941c767e"
+          }
+        },
+        {
+          "worker": 2,
+          "source_bytes": 2147483648,
+          "source_sha256": "4d4cc29dc3bccda054b83ad247d2c28edb0243b17de8c719b617acb648df1e67",
+          "stored_bytes": 2147483648,
+          "stored_sha256": "4d4cc29dc3bccda054b83ad247d2c28edb0243b17de8c719b617acb648df1e67",
+          "download_bytes": 2147483648,
+          "download_sha256": "4d4cc29dc3bccda054b83ad247d2c28edb0243b17de8c719b617acb648df1e67",
+          "success": true,
+          "completion_idempotent": true,
+          "post_restart": {
+            "success": true,
+            "bytes": 2147483648,
+            "sha256": "4d4cc29dc3bccda054b83ad247d2c28edb0243b17de8c719b617acb648df1e67"
+          }
+        },
+        {
+          "worker": 3,
+          "source_bytes": 2147483648,
+          "source_sha256": "712fed31ae845c8aaa7e30aeae34be22a054b9c2cd328e597cfc332682b29752",
+          "stored_bytes": 2147483648,
+          "stored_sha256": "712fed31ae845c8aaa7e30aeae34be22a054b9c2cd328e597cfc332682b29752",
+          "download_bytes": 2147483648,
+          "download_sha256": "712fed31ae845c8aaa7e30aeae34be22a054b9c2cd328e597cfc332682b29752",
+          "success": true,
+          "completion_idempotent": true,
+          "post_restart": {
+            "success": true,
+            "bytes": 2147483648,
+            "sha256": "712fed31ae845c8aaa7e30aeae34be22a054b9c2cd328e597cfc332682b29752"
+          }
+        },
+        {
+          "worker": 4,
+          "source_bytes": 2147483648,
+          "source_sha256": "76a5ce373b1818ae194e257b56661b1f1ff4da9dd39aa48f871d34c6fa99dcd9",
+          "stored_bytes": 2147483648,
+          "stored_sha256": "76a5ce373b1818ae194e257b56661b1f1ff4da9dd39aa48f871d34c6fa99dcd9",
+          "download_bytes": 2147483648,
+          "download_sha256": "76a5ce373b1818ae194e257b56661b1f1ff4da9dd39aa48f871d34c6fa99dcd9",
+          "success": true,
+          "completion_idempotent": true,
+          "post_restart": {
+            "success": true,
+            "bytes": 2147483648,
+            "sha256": "76a5ce373b1818ae194e257b56661b1f1ff4da9dd39aa48f871d34c6fa99dcd9"
+          }
+        }
+      ],
+      "measurement": {
+        "baseline_rss_bytes": 290275328,
+        "peak_tree_rss_bytes": 303296512,
+        "rss_growth_bytes": 13021184,
+        "peak_temp_bytes": 8589934592,
+        "sample_interval_seconds": 0.25,
+        "measurement_errors": []
+      },
+      "observed_process_names": [
+        "caddy.exe",
+        "conhost.exe",
+        "python.exe"
+      ],
+      "observed_process_count": 9,
+      "accounts_measured": 4,
+      "used_bytes_per_account": [
+        2147483648,
+        2147483648,
+        2147483648,
+        2147483648
+      ],
+      "reserved_bytes_per_account": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "unique_submission_count": 4,
+      "post_restart_all_match": true
+    }
+  ]
+}

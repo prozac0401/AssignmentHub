@@ -1,0 +1,15 @@
+{
+  "template": "templates/users_template.xlsx",
+  "native_excel_value_and_format_verified": true,
+  "excel_version": "16.0",
+  "open_mode": "Read-only in a newly created private hidden Excel instance; macros disabled",
+  "A2_value": "001",
+  "A3_value": "002",
+  "A10000_number_format": "@",
+  "xlsx_export_and_readback_verified": true,
+  "visual_render_verified": false,
+  "visual_render_attempts": [
+    "Artifact Tool renderer failed resolving Vulkan function vkEnumerateInstanceVersion.",
+    "A subsequent private Excel PDF export exceeded the 45-second limit; only its verified owned Excel process was terminated. No preview was produced."
+  ]
+}

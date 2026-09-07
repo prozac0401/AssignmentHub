@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>과제 제출 · AssignmentHub</title>
+  <link rel="stylesheet" href="/upload-static/upload.css">
+  <script src="/upload-static/sha256.js" defer></script><script src="/upload-static/upload.js" defer></script>
+</head>
+<body>
+<header><a class="brand" href="/">AH<span>AssignmentHub</span></a><div id="course">과제 제출</div><a href="/">관리 화면으로</a></header>
+<main>
+  <div class="intro"><span class="eyebrow">DIRECT FILE TRANSFER</span><h1>과제를 안전하게 제출하세요.</h1><p>파일 전송 후 서버의 검증과 저장이 끝나면 제출번호가 발급됩니다.</p></div>
+  <div id="notice" class="notice hidden" role="alert"></div>
+  <section id="auth" class="card">
+    <h2>제출 화면 연결</h2><p class="muted">관리 화면에서 발급한 일회용 연결 코드를 입력하거나, 같은 계정으로 로그인하세요.</p>
+    <div class="auth-grid">
+      <form id="bridge-form"><label for="bridge">일회용 연결 코드</label><input id="bridge" autocomplete="off" maxlength="128" required><button type="submit">코드로 연결</button></form>
+      <form id="login-form"><label for="user-id">로그인 ID</label><input id="user-id" autocomplete="username" required maxlength="128"><label for="password">비밀번호</label><input id="password" type="password" autocomplete="current-password" required maxlength="128"><button type="submit" class="secondary">로그인</button></form>
+    </div>
+  </section>
+  <section id="password-panel" class="card hidden"><h2>비밀번호 변경이 필요합니다</h2><p>관리 화면에서 비밀번호를 변경한 뒤 새 비밀번호로 로그인하세요.</p><a class="button" href="/">비밀번호 변경 화면 열기</a></section>
+  <div id="workspace" class="hidden">
+    <div class="session"><span id="identity"></span><button id="logout" class="text-button">로그아웃</button></div>
+    <div class="layout">
+      <div>
+        <section class="card"><h2><span class="step">01</span>과제와 파일 선택</h2>
+          <label for="assignment">제출할 과제</label><select id="assignment"></select><p id="assignment-description" class="muted"></p>
+          <label class="drop-zone" for="files"><strong>제출할 파일 선택</strong><span>선택한 모든 파일을 하나의 제출 묶음으로 보관합니다.</span><input id="files" type="file" multiple></label>
+          <div id="selection" class="file-list"></div><p id="selection-total" class="muted">선택된 파일이 없습니다.</p>
+          <div id="resume-indicator" class="notice hidden"></div>
+          <button id="start" disabled>제출 시작</button><button id="fresh" class="secondary hidden">새 제출로 전환</button>
+        </section>
+        <section id="progress-panel" class="card hidden" aria-live="polite"><h2><span class="step">02</span>전송 진행 상황</h2>
+          <div class="status-line"><strong id="status">대기 중</strong><span id="percent">0%</span></div>
+          <progress id="total-progress" max="100" value="0"></progress><p id="total-progress-label" class="muted">서버 확정 수신량 0 B</p>
+          <p id="current-file"></p><div id="file-progress-list"></div>
+          <p id="progress-help" class="muted"></p><div class="actions"><button id="retry" class="hidden">다시 시도</button><button id="pause" class="secondary hidden">일시 중지</button><button id="cancel" class="danger hidden">업로드 취소</button></div>
+        </section>
+        <section id="receipt" class="card success hidden" aria-live="polite"></section>
+      </div>
+      <aside>
+        <section class="card quota"><h2>나의 저장 용량</h2><strong id="quota-used">—</strong><p id="quota-detail" class="muted"></p><progress id="quota-progress" max="100" value="0"></progress><dl id="limits"></dl><p class="small">이전 제출 버전도 사용량에 포함됩니다. 1 GiB = 1,073,741,824 B.</p></section>
+        <section class="card"><h2>이어 올리기</h2><p class="muted">새로고침 후에는 같은 파일을 다시 선택하세요. 전체 SHA-256을 비교한 뒤 서버가 확인한 위치부터 재개합니다.</p><div id="unfinished"></div><button id="refresh" class="secondary">상태 새로고침</button></section>
+      </aside>
+    </div>
+    <section id="history" class="card"><h2>완료된 제출 이력</h2><p class="muted">아래에 제출번호가 표시된 묶음만 완료된 제출입니다.</p><div id="history-list"></div></section>
+  </div>
+  <footer>AssignmentHub · 파일은 운영자 PC에 저장됩니다. 전송 도중 창을 닫아도 유효한 작업을 다시 이어 올릴 수 있습니다.</footer>
+</main>
+</body></html>

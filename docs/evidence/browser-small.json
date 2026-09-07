@@ -1,0 +1,36 @@
+{
+  "passed": true,
+  "browser": "Microsoft Edge 152.0.4191.66",
+  "platform": "win32 10.0.22631",
+  "elapsed_seconds": 47.874,
+  "command": "node tests/test_browser.cjs .local-tests/browser-students-retry.json",
+  "results": [
+    {
+      "instance_id": "browser_1",
+      "bytes": 9437213,
+      "sha256": "d3abaaebb8ff0872d13de2bc043cf83f1633d29570cd458d0a7e5f43f77db247",
+      "sha256_match": true,
+      "websocket": true,
+      "password_change": false,
+      "browser_reload_resume": true,
+      "cookie_path": "/ui/browser_1/"
+    },
+    {
+      "instance_id": "browser_2",
+      "bytes": 9437213,
+      "sha256": "d3abaaebb8ff0872d13de2bc043cf83f1633d29570cd458d0a7e5f43f77db247",
+      "sha256_match": true,
+      "websocket": true,
+      "password_change": true,
+      "browser_reload_resume": false,
+      "cookie_path": "/ui/browser_2/"
+    }
+  ],
+  "same_browser_context_two_ports": true,
+  "cross_instance_token_rejected": true,
+  "first_instance_session_survived_second_login": true,
+  "verification_and_saving_visible_before_completed": true,
+  "javascript_errors": 0,
+  "auth_tokens_in_local_or_session_storage": false,
+  "scope": "Two real same-host ports using Caddy, Streamlit, FastAPI and Edge; small files. Not a four-tab 2GiB load test."
+}

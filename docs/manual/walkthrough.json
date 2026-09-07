@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "browser": "152.0.4191.66",
+  "captured_at": "2026-09-07T18:25:47.105Z",
+  "fictional_course": "파이썬 기초 실습",
+  "student_id": "001",
+  "ui_roster_import": true,
+  "private_csv_download": true,
+  "assignment_created": true,
+  "first_password_changed": true,
+  "one_time_bridge": true,
+  "network_interruption_simulated": "Second chunk aborted by Playwright; subsequent transfer uses real server responses",
+  "browser_reload_resume": true,
+  "confirmed_bytes_before_reload": 8388608,
+  "file_bytes": 11400000,
+  "download_sha256": "3be936fd51c3a90b8738812ee9a9926fced748f3d481d0e81eb27e3c9ada4314",
+  "download_matches_original": true,
+  "javascript_errors": 0,
+  "screenshots": 21,
+  "server_stopped": true,
+  "native_manager": "Real Tk window and real widget callbacks; confirmation supplied within isolated test process"
+}

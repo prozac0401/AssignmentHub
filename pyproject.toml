@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "assignment-hub"
+version = "1.0.0"
+description = "Local, resumable assignment submission server"
+requires-python = ">=3.12,<3.13"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.in"]}
+
+[tool.setuptools.package-data]
+assignmenthub = ["static/*"]
+
+[tool.setuptools.packages.find]
+include = ["assignmenthub*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = ["integration: real operating-system processes and network integration"]

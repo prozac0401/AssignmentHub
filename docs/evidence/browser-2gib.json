@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "scope": "One actual 2GiB browser upload and native browser download through Caddy, Streamlit and FastAPI",
+  "command": "node tests/test_browser.cjs .local-tests/browser-large.json",
+  "browser": "Microsoft Edge 152.0.4191.66",
+  "platform": "win32 10.0.22631",
+  "elapsed_seconds": 1055.834,
+  "bytes": 2147483648,
+  "original_and_downloaded_sha256": "93911e9ca3f0a3965982abf690a189ac3002bdae1ab3cf43634aba4332fb7e42",
+  "sha256_match": true,
+  "websocket": true,
+  "verify_and_save_ui_before_receipt": true,
+  "native_browser_download": true,
+  "javascript_errors": 0,
+  "browser_reload_resume_in_this_run": false,
+  "submission_number": 11,
+  "screenshot": "browser-2gib-uploader.png",
+  "measurement_scope": "Includes source generation, hashing, transfer, verification, receipt, native download and downloaded-file hashing. Other tests ran concurrently. Server RSS and browser RSS were not independently sampled in this run.",
+  "sanitized": "Account details, upload IDs, tokens and private paths omitted."
+}

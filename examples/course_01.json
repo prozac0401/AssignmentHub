@@ -1,0 +1,18 @@
+{
+  "instance_id": "course_01",
+  "course_name": "교육과정 1차",
+  "port": 8501,
+  "bind_host": "0.0.0.0",
+  "public_host": "192.168.0.10",
+  "storage_root": "D:\\Assignments\\course_01",
+  "max_file_bytes": 2147483648,
+  "user_quota_bytes": 10737418240,
+  "min_free_bytes": 5368709120,
+  "chunk_bytes": 8388608,
+  "max_files": 10,
+  "concurrent_uploads": 4,
+  "upload_ttl_hours": 24,
+  "session_hours": 8,
+  "timezone": "Asia/Seoul",
+  "secure_cookies": false
+}

@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "browser": "152.0.4191.66",
+  "onboarding_navigation": true,
+  "public_url_matches": true,
+  "javascript_errors": 0,
+  "real_tk_widgets": true,
+  "create_validation": true,
+  "clipboard_copy": true,
+  "real_start_stop": true,
+  "event_loop_ticks_during_start": 398,
+  "settings_after_stop": true,
+  "close_and_reopen_keeps_server": true,
+  "os_mouse_input_verified": false,
+  "scope": "Windows Tk widget callbacks + real server processes + Edge browser navigation; OS mouse input was not automated",
+  "manager_entrypoint_bat_verified": true,
+  "visual_reviewed": true,
+  "test_server_stopped": true,
+  "new_pc_install_verified": false,
+  "large_upload_rerun_in_this_followup": false
+}

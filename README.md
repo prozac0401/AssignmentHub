@@ -1,0 +1,85 @@
+# AssignmentHub
+
+운영자 PC에서 수강생 계정과 과제 파일을 관리하는 한국어 로컬 서버입니다. Streamlit 화면과 FastAPI 업로드 API를 Caddy의 **인스턴스별 단일 접속 포트**로 제공합니다. 과제 파일은 브라우저에서 8MiB 청크로 직접 전송하며, 전체 파일을 Streamlit 업로더에 올리지 않습니다.
+
+기본 정책은 파일당 **2GiB = 2,147,483,648바이트**, 수강생별 보존 용량 **10GiB**, 디스크 최소 여유 **5GiB**, 한 제출 최대 **10개 파일**, 동시 청크 전송 슬롯 **4개**, 미완료 보관 **24시간**입니다. `GiB = 1,073,741,824바이트`를 일관되게 사용합니다. 모든 설정은 인스턴스별로 변경할 수 있습니다.
+
+## 화면으로 따라 하는 매뉴얼
+
+[24쪽 PPT 매뉴얼 다운로드](docs/manual/AssignmentHub_사용자_매뉴얼.pptx) · [캡처와 단계별 사용 예시](docs/manual/README.md) · [사용자 등록 엑셀 템플릿](templates/users_template.xlsx)
+
+실제로 실행한 서버 관리창과 브라우저 화면 21개로 과정 생성, 명단 등록, 학생의 첫 로그인, 파일 제출·이어 올리기·다운로드, 제출 현황, 종료와 백업을 설명합니다. 예시 계정으로 전송한 파일은 서버에서 다시 내려받아 원본과 SHA-256이 같은 것을 확인했습니다. 상세 수행 범위와 미검증 항목은 [검증 보고서](docs/test-report.md)에 구분합니다.
+
+## 더블클릭으로 시작 — 서버 운영자
+
+1. **64비트 Python 3.12**를 설치합니다. 설치 옵션의 Tcl/Tk를 포함합니다.
+2. 저장소의 **`start.bat`를 더블클릭**합니다. 처음에는 필요한 구성요소를 설치하고 한국어 서버 관리창을 엽니다.
+3. **새 과정 만들기**에서 과정명·수강생 접속 IP·관리자 비밀번호를 입력합니다. 과정 ID와 비어 있는 포트는 제안되며, 저장 폴더를 선택할 수 있습니다. 용량은 GiB 단위로 입력합니다.
+4. 과정 선택 → **서버 시작** → **관리자 화면 열기** 순서로 진행합니다. 웹 관리자 화면의 **운영 안내**에서 명단 등록·과제 설정·접속 주소 안내를 진행합니다.
+5. 다음 수업부터는 관리창에서 해당 과정의 **서버 시작**만 누르면 됩니다. 수업 종료 후에는 **서버 중지**를 누릅니다.
+
+관리창은 여러 과정의 실행 상태를 함께 표시하고 주소 복사, 기존 설정 추가, 저장·로그 폴더 열기, 접속·오류 점검을 제공합니다. 창을 닫아도 실행 중인 서버는 유지되며, 닫기 전에 이를 안내합니다. `manage.bat`도 인자 없이 더블클릭하면 같은 관리창을 엽니다.
+
+GUI로 생성한 과정은 기본적으로 설정을 `instances/`, 데이터를 `data/<과정 ID>/`에 저장합니다. 기존에 다른 위치에 만든 과정은 **기존 설정 추가**에서 JSON을 선택합니다. 기존 DB·파일을 이동하거나 복사하지 않습니다. 네트워크 IP 후보가 여러 개이면 교육장 네트워크의 주소를 선택하세요. `127.0.0.1`은 이 PC에서만 접속할 수 있습니다.
+
+[서버 관리창 사용 안내](docs/server-manager.md) · [관리자 운영·백업 안내](docs/admin-guide.md)
+
+## 명령어로 설치·실행하기
+
+64비트 Python 3.12를 설치하고 저장소 폴더에서 명령 프롬프트를 엽니다. 이번 검증에는 Python 3.12.14를 사용했습니다. 설치 단계에는 인터넷이 필요합니다. 설치 후 로그인·제출에 외부 클라우드나 CDN을 사용하지 않습니다.
+
+```bat
+setup.bat
+manage.bat create --config instances\course_01.json --instance-id course_01 --course-name "교육과정 1차" --port 8501 --public-host 192.168.0.10 --storage-root D:\Assignments\course_01 --admin-id admin
+manage.bat start --config instances\course_01.json
+manage.bat status --config instances\course_01.json
+```
+
+생성 시 로컬 콘솔에서 관리자 비밀번호를 두 번 입력합니다. 기본 비밀번호는 없습니다. 예시 IP `192.168.0.10`은 **실제 서버 PC의 교육장 네트워크 IP**로 바꾸세요. 수강생에게는 출력된 접속 URL을 안내하며 다른 PC에 `localhost`를 안내하지 않습니다. 방화벽에서 지정한 외부 포트의 교육장 네트워크 접근을 허용해야 합니다.
+
+관리자 로그인 후 **명단 등록**에서 `templates/users_template.xlsx`의 예시 행을 실제 수강생으로 바꾼 파일을 선택하고 미리보기를 확인해 적용합니다. 발급된 서로 다른 임시비밀번호를 각 수강생에게 배포합니다. 수강생은 최초 로그인 후 12~128자 새 비밀번호로 변경하고 다시 로그인합니다.
+
+## 두 인스턴스 동시 실행
+
+```bat
+manage.bat create --config instances\course_02.json --instance-id course_02 --course-name "교육과정 2차" --port 8502 --public-host 192.168.0.10 --storage-root D:\Assignments\course_02 --admin-id admin
+manage.bat start --config instances\course_01.json
+manage.bat start --config instances\course_02.json
+manage.bat stop --config instances\course_01.json
+manage.bat status --config instances\course_02.json
+```
+
+각 인스턴스는 별도 DB, 비밀값, 파일, 실행 잠금을 사용합니다. 같은 저장 루트를 여러 인스턴스가 공유할 수 없습니다. 내부 API·Streamlit 포트는 실행 도구가 loopback에서 자동 할당합니다. 일반 Python·Streamlit 프로세스를 일괄 종료하지 않습니다.
+
+## 제공 기능과 주요 파일
+
+| 경로 | 역할 |
+| --- | --- |
+| `assignmenthub/config.py`, `db.py`, `service.py`, `api.py` | 설정, SQLite, 인증·권한·용량·복구, API |
+| `assignmenthub/ui.py`, `assignmenthub/static/` | 한국어 관리·수강생 화면, 브라우저 청크 업로더 |
+| `assignmenthub/server_manager.py`, `management.py` | 한국어 로컬 관리창, 과정 생성·설정·접속 점검 |
+| `assignmenthub/cli.py`, `launcher.py` | 생성·설정·시작·상태·중지, 단일 포트 게이트웨이 |
+| `start.bat`, `setup.bat`, `manage.bat`, `requirements.lock` | 더블클릭 관리창·설치·CLI와 고정 의존성 |
+| `examples/` | 두 인스턴스 설정 예제 |
+| `templates/users_template.xlsx` | 앞자리 0을 보존하는 사용자 등록 템플릿 |
+| `tests/`, `scripts/load_test.py` | 작은 경계·장애 테스트와 실제 대용량 검증 |
+
+명단 미리보기·재등록, 비밀번호 변경·초기화, 계정 활성화, 과제 접수 제어, 여러 파일 묶음, 재제출 버전, 이어 올리기·취소, 관리자 집계·내보내기, 권한 검사 후 스트리밍 다운로드를 제공합니다. 완료된 제출물의 자동 삭제 및 수강생 삭제, 임의 회원가입, EXE 배포는 초기 범위에 포함하지 않습니다.
+
+## 검사와 운영 문서
+
+```bat
+.venv\Scripts\python.exe -m pytest -q
+.venv\Scripts\python.exe scripts\load_test.py --help
+```
+
+자동 테스트 통과와 실제 2GiB·브라우저 검증 여부는 구분합니다. 수행 명령, 결과, 미검증 항목은 [검증 보고서](docs/test-report.md)에 기록합니다. 실제 대용량 검증은 전용 테스트 인스턴스를 사용하세요.
+
+- [요구사항과 기본 가정](docs/requirements.md)
+- [사용자가 제공한 전체 요구사항](docs/requirements-source.md)
+- [구조·인증·업로드·복구 정책](docs/architecture.md)
+- [API 참조](docs/api.md)
+- [관리자 운영·명단·백업·복원](docs/admin-guide.md)
+- [수강생 로그인·제출·재시도](docs/user-guide.md)
+
+백업은 `manage.bat stop --config ...` 후 중지 상태를 확인하고 **설정 파일과 저장 루트 전체**를 함께 복사합니다. DB만 복사하면 제출 파일이나 인증 비밀값이 빠질 수 있습니다. 상세 복원 절차는 관리자 문서를 따르세요. HTTP 운영에서는 네트워크 구간이 암호화되지 않습니다. 실제 개인정보를 다루는 환경은 신뢰하는 네트워크 및 TLS 구성을 적용하세요.

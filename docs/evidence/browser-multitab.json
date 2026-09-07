@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "scope": "Four real concurrent browser tabs using the same account, small files",
+  "command": "node tests/test_browser_multitab.cjs .local-tests/browser-students-retry.json",
+  "browser": "Microsoft Edge 152.0.4191.66",
+  "bytes_per_file": 262157,
+  "concurrent_tabs": 4,
+  "unique_upload_count": 4,
+  "unique_submission_count": 4,
+  "submission_numbers": [7, 8, 9, 10],
+  "all_completed": true,
+  "all_stored_sha256_match": true,
+  "sha256": "7be877f93915761832cff97282fdca2635ff68ffd381e4b413c002029c9272d4",
+  "javascript_errors": 0,
+  "elapsed_seconds": 150.597,
+  "limitation": "Four actual browser tabs each uploading 2GiB simultaneously were not tested.",
+  "sanitized": "Account details, upload IDs, tokens and private paths omitted."
+}
