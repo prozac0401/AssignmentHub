@@ -54,7 +54,7 @@ def main():
     server_manager.messagebox.askyesno = lambda *args, **kwargs: True
     errors = []
     manager.show_error = lambda error: errors.append(str(error))
-    config = None
+    config = second_config = None
     fixture = work / "private-browser.json"
     try:
         pump(root, lambda: not manager.jobs)
@@ -76,6 +76,7 @@ def main():
         dialog.save_button.invoke()
         pump(root, lambda: not dialog.winfo_exists() and bool(manager.courses) and not manager.jobs)
         config = manager.selected().config
+        first_path = manager.selected().path
         manager.buttons["start"].invoke()
         pump(root, lambda: not manager.busy_paths and not manager.jobs, timeout=660)
         assert not errors, errors
@@ -109,13 +110,33 @@ def main():
         if child.returncode:
             print((work / "browser-output.txt").read_text(encoding="utf-8"))
             raise RuntimeError("Browser walkthrough failed")
+        manager.new_button.invoke()
+        dialog = next(w for w in root.winfo_children() if isinstance(w, CourseDialog))
+        for key, value in dict(course_name="데이터 분석 오후반", instance_id="manual_" + secrets.token_hex(3),
+                               public_host="127.0.0.1", port=str(internal_port()),
+                               storage_root=str(work / "data" / "afternoon"), admin_id="admin",
+                               password=secrets.token_urlsafe(24)).items():
+            dialog.variables[key].set(value)
+        dialog.variables["confirm"].set(dialog.variables["password"].get())
+        dialog.save_button.invoke()
+        pump(root, lambda: not dialog.winfo_exists() and len(manager.courses) == 2 and not manager.jobs)
+        second_config = manager.selected().config
+        manager.buttons["start"].invoke()
+        pump(root, lambda: not manager.busy_paths and not manager.jobs, timeout=180)
+        assert status(config)["running"] and status(second_config)["running"]
+        capture(root, root, output / "34-two-courses.png")
+        manager.buttons["stop"].invoke()
+        pump(root, lambda: not manager.busy_paths and not manager.jobs, timeout=120)
+        assert status(config)["running"] and not status(second_config)["running"]
+        manager.tree.selection_set(str(first_path))
+        manager.selection()
         manager.buttons["stop"].invoke()
         pump(root, lambda: not manager.busy_paths and not manager.jobs, timeout=120)
         assert not status(config)["running"]
         capture(root, root, output / "21-server-stopped.png")
         report_path = output.parent / "walkthrough.json"
         report = json.loads(report_path.read_text(encoding="utf-8"))
-        report.update(screenshots=len(list(output.glob('*.png'))), server_stopped=True, native_compact_viewport=[640, 520],
+        report.update(screenshots=len(list(output.glob('*.png'))), server_stopped=True, two_courses_independent_stop=True, native_compact_viewport=[640, 520],
                       native_manager="Real Tk window and real widget callbacks; confirmation supplied within isolated test process")
         report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         print(json.dumps({"passed": True, "screenshots": len(list(output.glob('*.png'))),
@@ -124,6 +145,8 @@ def main():
         fixture.unlink(missing_ok=True)
         if config:
             stop(config)
+        if second_config:
+            stop(second_config)
         manager.executor.shutdown(wait=True, cancel_futures=True)
         root.destroy()
 

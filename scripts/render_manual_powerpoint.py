@@ -1,6 +1,6 @@
 """Read-only native PowerPoint rendering. Does not alter or close user decks.
 
-Usage: bundled-python scripts/render_manual_powerpoint.py PPTX OUTPUT_DIR
+Usage: bundled-python scripts/render_manual_powerpoint.py PPTX OUTPUT_DIR [PDF]
 Requires Windows, PowerPoint and pywin32. Output is QA, not an authored deck.
 """
 import json
@@ -19,6 +19,12 @@ def main():
     deck=None
     try:
         deck=app.Presentations.Open(str(source),True,False,False)
+        if len(sys.argv)>3:
+            pdf=Path(sys.argv[3]).resolve()
+            if pdf.exists():
+                raise FileExistsError(pdf)
+            pdf.parent.mkdir(parents=True,exist_ok=True)
+            deck.SaveCopyAs(str(pdf),32)
         slides=[]
         for index in range(1,deck.Slides.Count+1):
             slide=deck.Slides(index)
@@ -33,7 +39,7 @@ def main():
             slides.append({'slide':index,'text':text})
             print(f'Rendered slide {index}',flush=True)
         report={'engine':'Microsoft PowerPoint','version':app.Version,'slides':len(slides),'source':source.name,
-                'read_only':True,'slide_width_pt':deck.PageSetup.SlideWidth,
+                'read_only':True,'pdf_exported':len(sys.argv)>3,'slide_width_pt':deck.PageSetup.SlideWidth,
                 'slide_height_pt':deck.PageSetup.SlideHeight,'text_geometry':slides}
         (output/'native-render.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     finally:

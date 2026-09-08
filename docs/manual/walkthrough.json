@@ -1,12 +1,16 @@
 {
   "passed": true,
   "browser": "152.0.4191.66",
-  "captured_at": "2026-09-07T18:54:01.448Z",
+  "captured_at": "2026-09-08T02:40:18.799Z",
   "fictional_course": "파이썬 기초 실습",
   "student_id": "001",
-  "ui_roster_import": true,
+  "ui_roster_import": "TSV paste and file upload",
+  "duplicate_roster_blocked": true,
+  "roster_update_and_new_student": true,
+  "password_reset": true,
   "private_csv_download": true,
   "assignment_created": true,
+  "assignment_closed": true,
   "first_password_changed": true,
   "one_time_bridge": true,
   "network_interruption_simulated": "Second chunk aborted by Playwright; subsequent transfer uses real server responses",
@@ -15,6 +19,9 @@
   "file_bytes": 11400000,
   "download_sha256": "3be936fd51c3a90b8738812ee9a9926fced748f3d481d0e81eb27e3c9ada4314",
   "download_matches_original": true,
+  "multiple_files": 2,
+  "resubmission_preserves_both_versions": true,
+  "submission_csv_download": true,
   "javascript_errors": 0,
   "drag_and_drop": true,
   "responsive_checks": [
@@ -109,123 +116,12 @@
       "horizontal_overflow": false
     }
   ],
-  "screenshots": 24,
+  "screenshots": 34,
   "server_stopped": true,
+  "two_courses_independent_stop": true,
   "native_compact_viewport": [
     640,
     520
   ],
-  "native_manager": "Real Tk window and real widget callbacks; confirmation supplied within isolated test process",
-  "tab_style_check": {
-    "passed": true,
-    "checks": [
-      {
-        "window": [
-          740,
-          760
-        ],
-        "selected": 0,
-        "tab_vertical_bounds": [
-          [
-            6,
-            46
-          ],
-          [
-            6,
-            46
-          ]
-        ]
-      },
-      {
-        "window": [
-          740,
-          760
-        ],
-        "selected": 1,
-        "tab_vertical_bounds": [
-          [
-            6,
-            46
-          ],
-          [
-            6,
-            46
-          ]
-        ]
-      },
-      {
-        "window": [
-          740,
-          760
-        ],
-        "selected": 0,
-        "tab_vertical_bounds": [
-          [
-            6,
-            46
-          ],
-          [
-            6,
-            46
-          ]
-        ]
-      },
-      {
-        "window": [
-          540,
-          480
-        ],
-        "selected": 0,
-        "tab_vertical_bounds": [
-          [
-            6,
-            46
-          ],
-          [
-            6,
-            46
-          ]
-        ]
-      },
-      {
-        "window": [
-          540,
-          480
-        ],
-        "selected": 1,
-        "tab_vertical_bounds": [
-          [
-            6,
-            46
-          ],
-          [
-            6,
-            46
-          ]
-        ]
-      },
-      {
-        "window": [
-          540,
-          480
-        ],
-        "selected": 0,
-        "tab_vertical_bounds": [
-          [
-            6,
-            46
-          ],
-          [
-            6,
-            46
-          ]
-        ]
-      }
-    ],
-    "refreshed_captures": [
-      "02-create-course.png",
-      "03-course-limits.png"
-    ],
-    "full_walkthrough_rerun": false
-  }
+  "native_manager": "Real Tk window and real widget callbacks; confirmation supplied within isolated test process"
 }

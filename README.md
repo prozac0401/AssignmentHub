@@ -4,11 +4,13 @@
 
 기본 정책은 파일당 **2GiB = 2,147,483,648바이트**, 수강생별 보존 용량 **10GiB**, 디스크 최소 여유 **5GiB**, 한 제출 최대 **10개 파일**, 동시 청크 전송 슬롯 **4개**, 미완료 보관 **24시간**입니다. `GiB = 1,073,741,824바이트`를 일관되게 사용합니다. 모든 설정은 인스턴스별로 변경할 수 있습니다.
 
-## 화면으로 따라 하는 매뉴얼
+## 시나리오별 매뉴얼과 퀵가이드
 
-[27쪽 PPT 매뉴얼 다운로드](docs/manual/AssignmentHub_사용자_매뉴얼.pptx) · [캡처와 단계별 사용 예시](docs/manual/README.md) · [사용자 등록 TSV 템플릿](templates/users_template.tsv)
+[2쪽 퀵가이드 PDF](docs/manual/AssignmentHub_퀵가이드.pdf) · [35쪽 상세 매뉴얼 PDF](docs/manual/AssignmentHub_사용자_매뉴얼.pdf) · [편집용 PPTX](docs/manual/AssignmentHub_사용자_매뉴얼.pptx) · [시나리오별 사용 예시](docs/manual/scenarios.md)
 
-실제로 실행한 서버 관리창과 브라우저 화면 24개로 과정 생성, 명단 등록, 학생의 첫 로그인, 파일 제출·이어 올리기·다운로드, 제출 현황, 종료와 백업을 설명합니다. 예시 계정으로 전송한 파일은 서버에서 다시 내려받아 원본과 SHA-256이 같은 것을 확인했습니다. 상세 수행 범위와 미검증 항목은 [검증 보고서](docs/test-report.md)에 구분합니다. PPT의 엑셀 명단 등록 설명은 현재 [TSV 입력 안내](docs/admin-guide.md#명단-등록과-임시비밀번호)와 [검증 화면](docs/tsv-test-report.md)을 따릅니다. PPT의 사전 설치 설명은 현재 [무설치 배포 안내](docs/portable-distribution.md)로 대체되며, [Python 내장 배포 검증 결과](docs/portable-test-report.md)를 별도로 제공합니다.
+v1.2.0의 **Python 내장 무설치 실행과 TSV 명단 입력**에 맞춰 갱신했습니다. 운영자용·수강생용 퀵가이드는 각각 한 쪽입니다. 상세 매뉴얼은 수업 준비, 첫 명단 등록, 추가 등록·그룹 변경, 비밀번호 초기화, 과제 접수, 여러 파일 제출, 이어 올리기, 수정본 재제출, 미제출자 확인, 두 과정 운영, 종료·백업·복원을 12개 시나리오로 설명합니다. [명단 예시 TSV 3종](docs/manual/README.md#tsv-예시-파일)과 인터넷 없이 열 수 있는 웹 매뉴얼을 함께 제공합니다.
+
+현재 [v1.2.0 릴리즈](https://github.com/prozac0401/AssignmentHub/releases/tag/v1.2.0)의 매뉴얼·퀵가이드 첨부 파일을 사용하세요. 상세 기능 검증 범위는 [검증 보고서](docs/test-report.md)와 [Python 내장 배포 검증 결과](docs/portable-test-report.md)를 참고하세요.
 
 서버 관리창과 수업·제출 화면에 공통 디자인을 적용했습니다. 창 크기에 따라 메뉴·입력란·버튼을 재배치하며 파일 드래그 앤 드롭을 지원합니다. [디자인 참고와 화면 크기 대응](docs/ui-design.md)
 

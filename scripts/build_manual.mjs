@@ -14,10 +14,12 @@ await fs.mkdir(tmp,{recursive:true});await fs.mkdir(out,{recursive:true});
 process.env.RUNTIME_NODE_MODULES ||= await fs.realpath(path.join(tmp,'node_modules'));
 process.env.RUNTIME_NODE ||= process.execPath;
 process.env.RUNTIME_PYTHON ||= RUNTIME_PYTHON;
+process.env.RUNTIME_BIN_DIR ||= path.resolve(RUNTIME_PYTHON,'..','..','bin','override');
 const {finalizePresentation,resolvePresentationFont}=await import(pathToFileURL(path.join(SKILL_DIR,'container_tools','artifact_tool_utils.mjs')).href);
 const font=resolvePresentationFont({fontFamily:'Malgun Gothic'});
 const presentation=Presentation.create({slideSize:{width:1600,height:900}});
 const content=JSON.parse(await fs.readFile(path.join(out,'slides.json'),'utf8'));
+const routes=JSON.parse(await fs.readFile(path.join(out,'routes.json'),'utf8'));
 const dark='#202539',green='#4F46E5',muted='#647087';
 function wrapWords(value,width,size){
  const measure=s=>Array.from(s).reduce((n,c)=>n+(/\s/.test(c)?0.35:c.codePointAt(0)>255?1:0.57),0)*size;
@@ -34,13 +36,19 @@ function text(slide,value,x,y,w,h,size=28,bold=false,color=dark){
 function base(title,page){const slide=presentation.slides.add();slide.background.fill='#FFFFFF';text(slide,title,64,40,1435,92,56,true);text(slide,String(page).padStart(2,'0'),1500,830,55,35,23,false,muted);return slide;}
 const cover=presentation.slides.add();cover.background.fill='#F0F2FF';
 text(cover,'AssignmentHub',92,208,1390,120,94,true);
-text(cover,'사용자 매뉴얼',98,343,1370,85,60,true);
-text(cover,'서버 운영과 학생의 과제 제출',100,470,1350,55,34,false,green);
-text(cover,'파이썬 기초 실습 예시\n2026년 9월',100,690,1200,100,27,false,muted);
-cover.speakerNotes.textFrame.setText('서버 운영자는 2~11쪽을 먼저 확인하고, 학생에게는 12~19쪽의 제출 절차를 안내합니다. 이어 올리기 예시는 원본 파일을 그대로 유지한 상태입니다.');
+text(cover,'시나리오별 사용자 매뉴얼',98,343,1370,85,60,true);
+text(cover,'무설치 실행과 TSV 명단 입력',100,470,1350,55,34,false,green);
+text(cover,'v1.2.0\n2026년 9월 8일',100,690,1200,100,27,false,muted);
+cover.speakerNotes.textFrame.setText('운영자는 시나리오 01~04를 먼저 확인합니다. 수강생은 05~08을 참고합니다. 배포용 퀵가이드에는 운영자와 수강생 절차를 각각 한 쪽에 정리했습니다.');
 for(let i=0;i<content.length;i++){
  const c=content[i],slide=base(c.title,i+2);
- if(c.image){
+ if(i===0){
+  routes.forEach(([number,title,role,pages],n)=>{const x=n<6?64:834,y=178+(n%6)*100;
+   text(slide,String(number).padStart(2,'0')+'. '+title,x,y,680,46,32,true,green);
+   text(slide,role+'  /  '+pages+'쪽',x,y+46,680,42,25,false,muted);
+  });
+  text(slide,c.note,64,827,1395,62,23,false,muted);
+ }else if(c.image){
   let y=177;
   for(const [label,body] of c.steps){text(slide,label,64,y,410,48,31,true,green);text(slide,wrapWords(body,366,27),64,y+58,410,246,27);y+=310;}
   const blob=await fs.readFile(path.join(out,'screenshots',c.image));

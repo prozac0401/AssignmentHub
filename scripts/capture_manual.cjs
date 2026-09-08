@@ -29,6 +29,15 @@ async function main(){
   await admin.getByRole('button',{name:'명단 등록·사용자 관리로 이동',exact:true}).waitFor({timeout:60000});
   await shot(admin,'07-admin-home');
   await admin.getByRole('button',{name:'명단 등록·사용자 관리로 이동',exact:true}).click();
+  const paste=admin.getByRole('textbox',{name:'TSV 명단 붙여넣기',exact:true});
+  await paste.fill(fs.readFileSync('templates/users_template.tsv','utf8').replace(/^\uFEFF/,''));
+  await admin.getByRole('button',{name:'명단 검증 및 미리보기',exact:true}).click();
+  await admin.getByRole('button',{name:'검증된 명단 반영',exact:true}).waitFor();
+  await shot(admin,'25-tsv-roster');
+  await paste.fill('user_id\tname\tgroup\n001\t홍길동\tA반\n001\t김민수\tB반');
+  await admin.getByRole('button',{name:'명단 검증 및 미리보기',exact:true}).click();
+  await admin.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.innerText.trim()==='검증된 명단 반영'&&b.disabled));
+  await shot(admin,'26-tsv-duplicate');
   await admin.getByText('TSV 파일 업로드',{exact:true}).click();
   await admin.locator('input[type=file]').setInputFiles(path.resolve('templates/users_template.tsv'));
   await admin.getByRole('button',{name:'명단 검증 및 미리보기',exact:true}).click();
@@ -48,6 +57,21 @@ async function main(){
   await admin.waitForTimeout(700);
   await admin.getByRole('heading',{name:'사용자 계정 관리',exact:true}).scrollIntoViewIfNeeded();
   await shot(admin,'09-users-registered');
+  await admin.getByText('직접 붙여넣기',{exact:true}).click();
+  await paste.fill('user_id\tname\tgroup\n002\t김민수\tA반\n003\t이서연\tB반');
+  await admin.getByRole('button',{name:'명단 검증 및 미리보기',exact:true}).click();
+  await admin.getByText('기존 계정의 이름·그룹 변경도 적용합니다. 비밀번호·활성 상태·제출 기록은 유지됩니다.',{exact:true}).click();
+  await admin.getByRole('heading',{name:'사용자 명단 등록',exact:true}).scrollIntoViewIfNeeded();
+  await shot(admin,'27-roster-update');
+  await admin.getByRole('button',{name:'검증된 명단 반영',exact:true}).click();
+  await admin.getByRole('button',{name:'임시비밀번호 결과 닫기',exact:true}).click();
+  const search=admin.getByRole('textbox',{name:'ID·이름·그룹 검색',exact:true});
+  await search.fill('002');await search.press('Enter');
+  await admin.getByText('이 사용자의 기존 로그인·업로드 권한을 즉시 무효화하고 비밀번호를 초기화합니다.',{exact:true}).click();
+  await admin.getByRole('heading',{name:'사용자 계정 관리',exact:true}).scrollIntoViewIfNeeded();
+  await shot(admin,'28-password-reset');
+  await admin.getByRole('button',{name:'비밀번호 초기화',exact:true}).click();
+  await admin.getByRole('button',{name:'초기화 결과 닫기',exact:true}).click();
   await nav('과제 관리');
   // Every new course has a default assignment, so explicitly expand the form.
   const create=admin.getByText('새 과제 추가',{exact:true});await create.click();
@@ -83,7 +107,8 @@ async function main(){
   const sample=path.join(f.work,'1주차_실습결과.txt');
   const data=Buffer.from('파이썬 기초 실습 과제\n학생 001의 예시 제출 파일입니다.\n'.repeat(150000));fs.writeFileSync(sample,data);
   const digest=crypto.createHash('sha256').update(data).digest('hex');
-  await upload.locator('#files').setInputFiles(sample);
+  const readme=path.join(f.work,'제출_설명.txt');fs.writeFileSync(readme,'학생 001의 1주차 실습 결과와 설명입니다.');
+  await upload.locator('#files').setInputFiles([sample,readme]);
   await shot(upload,'14-file-selected');
   await upload.setViewportSize({width:390,height:920});await upload.evaluate(()=>window.scrollTo(0,0));await shot(upload,'23-upload-mobile');
   await upload.setViewportSize({width:1280,height:900});
@@ -96,7 +121,7 @@ async function main(){
   const confirmed=await upload.evaluate(()=>state.upload.files[0].offset);assert(confirmed>0&&confirmed<data.length);
   await upload.reload();await upload.locator('#user-id').fill('001');await upload.locator('#password').fill(password);
   await upload.locator('#login-form button').click();await upload.locator('#workspace').waitFor({state:'visible'});
-  await upload.locator('#unfinished button').first().click();await upload.locator('#files').setInputFiles(sample);
+  await upload.locator('#unfinished button').first().click();await upload.locator('#files').setInputFiles([sample,readme]);
   await upload.evaluate(()=>window.scrollTo(0,260));await shot(upload,'16-resume-selected');
   await upload.locator('#start').click();await upload.locator('#receipt').waitFor({state:'visible',timeout:120000});
   await upload.locator('#receipt').scrollIntoViewIfNeeded();await shot(upload,'17-submission-receipt');
@@ -104,6 +129,15 @@ async function main(){
   const fileEvent=upload.waitForEvent('download');await upload.locator('#history-list button').first().click();
   const download=await fileEvent;const downloaded=fs.readFileSync(await download.path());
   assert.equal(crypto.createHash('sha256').update(downloaded).digest('hex'),digest);
+  await upload.getByRole('button',{name:'다른 파일 새로 제출',exact:true}).click();
+  const revised=path.join(f.work,'1주차_실습결과_수정본.txt');fs.writeFileSync(revised,'학생 001의 수정한 실습 결과입니다.');
+  await upload.locator('#assignment').selectOption({label:'1주차 실습 과제'});
+  await upload.locator('#files').setInputFiles(revised);
+  await upload.evaluate(()=>window.scrollTo(0,0));await shot(upload,'30-resubmit-selected');
+  await upload.locator('#start').click();await upload.locator('#receipt').waitFor({state:'visible',timeout:60000});
+  await upload.locator('#history').scrollIntoViewIfNeeded();
+  await upload.waitForFunction(()=>document.querySelector('#history-list').innerText.includes('버전 2'));
+  await shot(upload,'31-two-versions');
   await nav('제출 현황');
   await admin.getByRole('combobox').first().click();await admin.getByRole('option',{name:'1주차 실습 과제',exact:true}).click();
   await admin.getByRole('heading',{name:'제출 현황',exact:true}).waitFor();
@@ -111,14 +145,38 @@ async function main(){
   await responsive(admin,'admin-dashboard',[360,390,600,768,1024,1440]);
   await admin.setViewportSize({width:768,height:1024});await shot(admin,'24-dashboard-tablet');
   await admin.setViewportSize({width:1280,height:900});
+  await admin.getByText('미제출자',{exact:true}).last().click();
+  await shot(admin,'32-missing-students');
+  await admin.getByText('전체',{exact:true}).click();
+  await admin.getByRole('button',{name:'이 과제의 전체 현황 CSV 준비',exact:true}).click();
+  const statusEvent=admin.waitForEvent('download');
+  await admin.frameLocator('iframe').getByRole('button',{name:'제출 현황 CSV 다운로드',exact:true}).click();
+  const statusFile=await statusEvent;
+  const statusCsv=fs.readFileSync(await statusFile.path(),'utf8');assert(statusCsv.includes('001')&&statusCsv.includes('003'));
+  await admin.getByRole('heading',{name:'완료 제출물·보존 버전',exact:true}).scrollIntoViewIfNeeded();
+  await admin.getByText(/001 · 제출번호 .* · 버전 2/).click();
+  await admin.getByText('1주차_실습결과_수정본.txt',{exact:true}).waitFor();
+  await admin.getByRole('button',{name:'다운로드 준비',exact:true}).first().click();
+  await admin.frameLocator('iframe').last().getByRole('button',{name:'파일 다운로드',exact:true}).waitFor();
+  await admin.getByText('1주차_실습결과_수정본.txt',{exact:true}).evaluate(el=>el.scrollIntoView({block:'center'}));
+  await shot(admin,'33-submission-details');
+  await nav('과제 관리');
+  await admin.getByRole('combobox').first().click();
+  await admin.getByRole('option',{name:'1주차 실습 과제',exact:true}).click();
+  await admin.getByText('접수 중',{exact:true}).click();
+  await admin.getByRole('button',{name:'변경 사항 저장',exact:true}).click();
+  await admin.getByRole('textbox',{name:'과제명',exact:true}).scrollIntoViewIfNeeded();
+  await shot(admin,'29-assignment-closed');
   await nav('저장 공간·기록');await admin.getByRole('heading',{name:'저장 공간과 운영 기록',exact:true}).waitFor();
   await shot(admin,'20-storage-audit');
   assert.deepEqual(errors,[]);
   const report={passed:true,browser:browser.version(),captured_at:new Date().toISOString(),fictional_course:'파이썬 기초 실습',student_id:'001',
-   ui_roster_import:true,private_csv_download:true,assignment_created:true,first_password_changed:true,one_time_bridge:true,
+   ui_roster_import:'TSV paste and file upload',duplicate_roster_blocked:true,roster_update_and_new_student:true,password_reset:true,
+   private_csv_download:true,assignment_created:true,assignment_closed:true,first_password_changed:true,one_time_bridge:true,
    network_interruption_simulated:'Second chunk aborted by Playwright; subsequent transfer uses real server responses',
    browser_reload_resume:true,confirmed_bytes_before_reload:confirmed,file_bytes:data.length,download_sha256:digest,
-   download_matches_original:true,javascript_errors:0,drag_and_drop:true,responsive_checks:responsiveChecks,screenshots:fs.readdirSync(f.output).filter(n=>n.endsWith('.png')).length};
+   download_matches_original:true,multiple_files:2,resubmission_preserves_both_versions:true,submission_csv_download:true,
+   javascript_errors:0,drag_and_drop:true,responsive_checks:responsiveChecks,screenshots:fs.readdirSync(f.output).filter(n=>n.endsWith('.png')).length};
   fs.writeFileSync(path.join(f.output,'..','walkthrough.json'),JSON.stringify(report,null,2));
   console.log(JSON.stringify({passed:true,file_bytes:data.length,download_matches_original:true}));
  }catch(error){
