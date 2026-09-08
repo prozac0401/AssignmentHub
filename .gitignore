@@ -15,6 +15,9 @@ tools/*.tar.gz
 instances/
 data/
 runtime/
+distribution.json
+logs/
+tools/Caddy-LICENSE.txt
 test-runs/
 .local-tests/
 outputs/

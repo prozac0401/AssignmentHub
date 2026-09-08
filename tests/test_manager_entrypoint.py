@@ -2,6 +2,7 @@
 import ctypes
 from ctypes import wintypes
 import os
+from pathlib import Path
 import subprocess
 import time
 
@@ -14,6 +15,9 @@ from assignmenthub.launcher import PROJECT_ROOT, process_record, terminate_owned
 @pytest.mark.skipif(os.name != "nt", reason="Windows BAT entry point")
 @pytest.mark.integration
 def test_start_bat_opens_owned_pythonw_manager(tmp_path):
+    root = Path(os.environ.get("AH_DISTRIBUTION_ROOT", str(PROJECT_ROOT)))
+    if not (root / "runtime" / "python" / "pythonw.exe").is_file():
+        pytest.skip("Build the portable distribution and set AH_DISTRIBUTION_ROOT")
     catalog = str(tmp_path / "instances")
     launched = []
     since = time.time()
@@ -32,7 +36,7 @@ def test_start_bat_opens_owned_pythonw_manager(tmp_path):
         with log.open("wb") as output:
             process = subprocess.Popen([os.environ.get("COMSPEC", "cmd.exe"), "/d", "/c", "start.bat",
                                         "--instances-dir", catalog, "--data-dir", str(tmp_path / "data")],
-                                       cwd=PROJECT_ROOT, stdin=subprocess.DEVNULL, stdout=output, stderr=output)
+                                       cwd=root, stdin=subprocess.DEVNULL, stdout=output, stderr=output)
             try:
                 code = process.wait(timeout=30)
             finally:

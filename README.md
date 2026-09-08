@@ -8,7 +8,7 @@
 
 [27쪽 PPT 매뉴얼 다운로드](docs/manual/AssignmentHub_사용자_매뉴얼.pptx) · [캡처와 단계별 사용 예시](docs/manual/README.md) · [사용자 등록 엑셀 템플릿](templates/users_template.xlsx)
 
-실제로 실행한 서버 관리창과 브라우저 화면 24개로 과정 생성, 명단 등록, 학생의 첫 로그인, 파일 제출·이어 올리기·다운로드, 제출 현황, 종료와 백업을 설명합니다. 예시 계정으로 전송한 파일은 서버에서 다시 내려받아 원본과 SHA-256이 같은 것을 확인했습니다. 상세 수행 범위와 미검증 항목은 [검증 보고서](docs/test-report.md)에 구분합니다.
+실제로 실행한 서버 관리창과 브라우저 화면 24개로 과정 생성, 명단 등록, 학생의 첫 로그인, 파일 제출·이어 올리기·다운로드, 제출 현황, 종료와 백업을 설명합니다. 예시 계정으로 전송한 파일은 서버에서 다시 내려받아 원본과 SHA-256이 같은 것을 확인했습니다. 상세 수행 범위와 미검증 항목은 [검증 보고서](docs/test-report.md)에 구분합니다. PPT의 사전 설치 설명은 현재 [무설치 배포 안내](docs/portable-distribution.md)로 대체되며, [Python 내장 배포 검증 결과](docs/portable-test-report.md)를 별도로 제공합니다.
 
 서버 관리창과 수업·제출 화면에 공통 디자인을 적용했습니다. 창 크기에 따라 메뉴·입력란·버튼을 재배치하며 파일 드래그 앤 드롭을 지원합니다. [디자인 참고와 화면 크기 대응](docs/ui-design.md)
 
@@ -16,8 +16,8 @@
 
 ## 더블클릭으로 시작 — 서버 운영자
 
-1. **64비트 Python 3.12**를 설치합니다. 설치 옵션의 Tcl/Tk를 포함합니다.
-2. 저장소의 **`start.bat`를 더블클릭**합니다. 처음에는 필요한 구성요소를 설치하고 한국어 서버 관리창을 엽니다.
+1. [**`AssignmentHub-1.1.0-windows-x64.zip`**](https://github.com/prozac0401/AssignmentHub/releases/download/v1.1.0/AssignmentHub-1.1.0-windows-x64.zip) 전체를 쓰기 가능한 폴더에 압축 해제합니다. Windows 10/11 x64용이며 Python·Tcl/Tk·라이브러리·Caddy가 모두 포함되어 있습니다.
+2. 압축 해제한 폴더의 **`start.bat`를 더블클릭**합니다. 별도 설치, 관리자 권한, 인터넷 다운로드 없이 한국어 서버 관리창을 엽니다. ZIP 안에서 직접 실행하지 마세요.
 3. **새 과정 만들기**에서 과정명·수강생 접속 IP·관리자 비밀번호를 입력합니다. 과정 ID와 비어 있는 포트는 제안되며, 저장 폴더를 선택할 수 있습니다. 용량은 GiB 단위로 입력합니다.
 4. 과정 선택 → **서버 시작** → **관리자 화면 열기** 순서로 진행합니다. 웹 관리자 화면의 **운영 안내**에서 명단 등록·과제 설정·접속 주소 안내를 진행합니다.
 5. 다음 수업부터는 관리창에서 해당 과정의 **서버 시작**만 누르면 됩니다. 수업 종료 후에는 **서버 중지**를 누릅니다.
@@ -28,9 +28,9 @@ GUI로 생성한 과정은 기본적으로 설정을 `instances/`, 데이터를 
 
 [서버 관리창 사용 안내](docs/server-manager.md) · [관리자 운영·백업 안내](docs/admin-guide.md)
 
-## 명령어로 설치·실행하기
+## 명령어로 실행하기
 
-64비트 Python 3.12를 설치하고 저장소 폴더에서 명령 프롬프트를 엽니다. 이번 검증에는 Python 3.12.14를 사용했습니다. 설치 단계에는 인터넷이 필요합니다. 설치 후 로그인·제출에 외부 클라우드나 CDN을 사용하지 않습니다.
+압축 해제한 배포 폴더에서 명령 프롬프트를 엽니다. `setup.bat`는 선택적인 오프라인 무결성 점검입니다. 실행 시 Python 설치나 pip 설치를 수행하지 않으며, 로그인·제출에 외부 클라우드나 CDN을 사용하지 않습니다. 수강생은 같은 네트워크의 브라우저로 접속합니다.
 
 ```bat
 setup.bat
@@ -63,7 +63,9 @@ manage.bat status --config instances\course_02.json
 | `assignmenthub/ui.py`, `assignmenthub/static/` | 한국어 관리·수강생 화면, 브라우저 청크 업로더 |
 | `assignmenthub/server_manager.py`, `management.py` | 한국어 로컬 관리창, 과정 생성·설정·접속 점검 |
 | `assignmenthub/cli.py`, `launcher.py` | 생성·설정·시작·상태·중지, 단일 포트 게이트웨이 |
-| `start.bat`, `setup.bat`, `manage.bat`, `requirements.lock` | 더블클릭 관리창·설치·CLI와 고정 의존성 |
+| `start.bat`, `setup.bat`, `manage.bat` | 동봉 Python으로 관리창·오프라인 점검·CLI 실행 |
+| `runtime/python/`, `tools/caddy.exe` | 배포 ZIP에 포함된 독립 Python·Tcl/Tk·라이브러리·프록시 |
+| `build_portable.bat`, `scripts/build_portable.py`, `requirements.lock` | 배포본 생성 및 해시 고정 의존성 |
 | `examples/` | 두 인스턴스 설정 예제 |
 | `templates/users_template.xlsx` | 앞자리 0을 보존하는 사용자 등록 템플릿 |
 | `tests/`, `scripts/load_test.py` | 작은 경계·장애 테스트와 실제 대용량 검증 |
@@ -71,6 +73,8 @@ manage.bat status --config instances\course_02.json
 명단 미리보기·재등록, 비밀번호 변경·초기화, 계정 활성화, 과제 접수 제어, 여러 파일 묶음, 재제출 버전, 이어 올리기·취소, 관리자 집계·내보내기, 권한 검사 후 스트리밍 다운로드를 제공합니다. 완료된 제출물의 자동 삭제 및 수강생 삭제, 임의 회원가입, EXE 배포는 초기 범위에 포함하지 않습니다.
 
 ## 검사와 운영 문서
+
+소스 저장소에는 대용량 런타임 바이너리를 커밋하지 않습니다. **사용자에게는 빌드된 배포 ZIP 전체를 전달**합니다. 빌드 PC에서 `setup_dev.bat`로 개발 환경을 준비한 뒤 `build_portable.bat`를 실행하면 `dist/`에 배포 폴더, ZIP, SHA-256 파일이 만들어집니다. 빌드 PC에만 Python 3.12 x64(Tcl/Tk 포함)와 의존성 다운로드가 필요합니다. 자세한 구성·재빌드·검증 절차는 [무설치 배포 안내](docs/portable-distribution.md)를 참고하세요.
 
 ```bat
 .venv\Scripts\python.exe -m pytest -q

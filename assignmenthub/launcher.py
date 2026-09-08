@@ -162,7 +162,7 @@ def internal_port() -> int:
 def proxy_binary() -> Path:
     binary = PROJECT_ROOT / "tools" / ("caddy.exe" if os.name == "nt" else "caddy")
     if not binary.is_file():
-        raise LaunchError("프록시가 설치되지 않았습니다. setup.bat 또는 python scripts/install_proxy.py를 실행하세요.")
+        raise LaunchError("동봉된 프록시가 없습니다. 배포 ZIP 전체를 다시 압축 해제하세요. 개발 환경에서는 python scripts/install_proxy.py를 실행하세요.")
     return binary
 
 
@@ -322,7 +322,7 @@ def supervise(config_path: Path, launch_id: str) -> int:
                 for attempt in range(3):
                     api_port = internal_port()
                     env = _environment(config_path, api_port, launch_id, config.root)
-                    api = _spawn([sys.executable, "-m", "assignmenthub.runtime", "api", "--port", str(api_port)], logs / "api.log", env)
+                    api = _spawn([sys.executable, "-X", "utf8", "-B", "-m", "assignmenthub.runtime", "api", "--port", str(api_port)], logs / "api.log", env)
                     children.append(api)
                     records.append(process_record(api))
                     write_json(state_path, state)
@@ -336,7 +336,7 @@ def supervise(config_path: Path, launch_id: str) -> int:
 
                 for attempt in range(3):
                     ui_port = internal_port()
-                    command = [sys.executable, "-m", "streamlit", "run", str(PROJECT_ROOT / "assignmenthub" / "ui.py"),
+                    command = [sys.executable, "-X", "utf8", "-B", "-m", "streamlit", "run", str(PROJECT_ROOT / "assignmenthub" / "ui.py"),
                                "--server.address=127.0.0.1", f"--server.port={ui_port}",
                                f"--server.baseUrlPath=ui/{config.instance_id}", "--server.headless=true",
                                "--server.fileWatcherType=none", "--server.maxUploadSize=5", "--server.enableCORS=true",
@@ -432,7 +432,7 @@ def start(config_path: Path) -> dict:
     handshake = config.root / f".launch-{launch_id}.json"
     logs = config.root / "logs"
     logs.mkdir(exist_ok=True)
-    command = [sys.executable, "-m", "assignmenthub.cli", "run", "--config", str(config_path.resolve()), "--launch-id", launch_id]
+    command = [sys.executable, "-X", "utf8", "-B", "-m", "assignmenthub.cli", "run", "--config", str(config_path.resolve()), "--launch-id", launch_id]
     env = os.environ.copy()
     env.update(PYTHONUNBUFFERED="1", PYTHONUTF8="1")
     with (logs / "launcher.log").open("ab", buffering=0) as output:

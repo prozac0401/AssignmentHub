@@ -4,7 +4,7 @@
 
 일상적인 운영은 `start.bat`를 더블클릭해 **서버 관리창**에서 진행할 수 있습니다. 새 과정 만들기, 기존 설정 추가, 시작·중지, 주소 복사, 폴더 열기, 접속 점검을 제공합니다. 관리창을 닫아도 서버는 유지됩니다. 자세한 단계는 [서버 관리창 안내](server-manager.md)를 참고하세요. 아래 CLI 명령도 그대로 사용할 수 있습니다.
 
-`setup.bat`가 지원 Python을 확인하고 저장소 `.venv`에 고정 의존성과 Caddy를 준비합니다. 배포 기본 형태는 Python 소스와 BAT입니다. EXE는 필수가 아니며 추후 패키징 시 Caddy, 정적 자산, SQLite·Argon2 네이티브 의존성, 프로세스 종료 권한, 설정·데이터 외부 보존을 함께 검증해야 합니다.
+배포 ZIP에는 Python 3.12 x64, Tcl/Tk, 고정 의존성, Caddy, 정적 자산과 엑셀 템플릿이 포함됩니다. 전체 압축을 해제한 뒤 `start.bat`만 실행하면 됩니다. Python·관련 라이브러리 설치와 인터넷 연결은 필요하지 않습니다. `setup.bat`는 파일 해시와 구성요소를 확인하는 선택적인 오프라인 점검입니다. 소스에서 배포본을 만드는 절차는 [무설치 배포 안내](portable-distribution.md)를 참고하세요.
 
 ```bat
 manage.bat create --config instances\course_01.json --instance-id course_01 --course-name "교육과정 1차" --port 8501 --public-host 192.168.0.10 --storage-root D:\Assignments\course_01 --admin-id admin
