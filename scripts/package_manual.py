@@ -1,4 +1,4 @@
-"""Package only the reader-facing v1.2 manual and fictional TSV examples."""
+"""Package only the reader-facing v1.3 manual and fictional TSV examples."""
 from pathlib import Path
 import hashlib
 import json
@@ -15,9 +15,9 @@ def digest(path):
         return hashlib.file_digest(stream,'sha256').hexdigest()
 
 def main():
-    destination=ROOT/'dist/manual-v1.2.0'
+    destination=ROOT/'dist/manual-v1.3.0'
     destination.mkdir(parents=True,exist_ok=True)
-    name='AssignmentHub-1.2.0-Manual'
+    name='AssignmentHub-1.3.0-Manual'
     archive=destination/(name+'.zip')
     if archive.exists():
         raise FileExistsError(archive)
@@ -30,13 +30,13 @@ def main():
         bundle.writestr(name+'/SHA256SUMS.txt',''.join(f'{sha}  {p}\n' for p,sha in manifest.items()))
     for source,target in [('AssignmentHub_사용자_매뉴얼.pdf',name+'.pdf'),
                           ('AssignmentHub_사용자_매뉴얼.pptx',name+'.pptx'),
-                          ('AssignmentHub_퀵가이드.pdf','AssignmentHub-1.2.0-Quick-Guide.pdf')]:
+                          ('AssignmentHub_퀵가이드.pdf','AssignmentHub-1.3.0-Quick-Guide.pdf')]:
         target=destination/target
         if target.exists():
             raise FileExistsError(target)
         shutil.copy2(SOURCE/source,target)
     artifacts=[archive,*sorted(destination.glob('*.pdf')),*sorted(destination.glob('*.pptx'))]
-    checksums=destination/'AssignmentHub-1.2.0-Manual-SHA256SUMS.txt'
+    checksums=destination/'AssignmentHub-1.3.0-Manual-SHA256SUMS.txt'
     checksums.write_text(''.join(f'{digest(p)}  {p.name}\n' for p in artifacts),encoding='ascii')
     print(json.dumps({'folder':str(destination),'manual_files':len(files),
                       'assets':[{ 'name':p.name,'bytes':p.stat().st_size,'sha256':digest(p)} for p in [*artifacts,checksums]]},ensure_ascii=False))

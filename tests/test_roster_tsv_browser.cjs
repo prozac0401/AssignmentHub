@@ -39,7 +39,23 @@ async function main(){
     await validate.click();await ready(false);
     await textarea.fill(valid);
     await validate.click();await ready(true);
+    if(fixture.common_password){
+      await page.getByText('신규 수강생에게 공통 임시비밀번호 사용',{exact:true}).click();
+      await page.getByRole('textbox',{name:'이 차수의 공통 임시비밀번호',exact:true}).fill(fixture.common_password);
+      if(fixture.screenshot)await page.screenshot({path:fixture.screenshot,fullPage:true,mask:[page.locator('input[type=password]')]});
+    }
     await apply.click();
+    await page.getByRole('button',{name:'임시비밀번호 결과 닫기',exact:true}).waitFor();
+    if(fixture.common_password){
+      const csvEvent=page.waitForEvent('download');
+      await page.frameLocator('iframe').first().getByRole('button',{name:'임시비밀번호 결과 CSV 다운로드',exact:true}).click();
+      const csv=fs.readFileSync(await (await csvEvent).path(),'utf8');
+      assert.equal(csv.split(fixture.common_password).length-1,2,'Both new accounts receive the common value');
+      for(const uid of ['001','1']){
+        const response=await context.request.post(fixture.url+'/api/auth/login',{data:{user_id:uid,password:fixture.common_password}});
+        assert.equal(response.status(),200);assert.equal((await response.json()).must_change_password,true);
+      }
+    }
     await page.getByRole('button',{name:'임시비밀번호 결과 닫기',exact:true}).click();
     await page.getByText('TSV 파일 업로드',{exact:true}).click();
     await noPreview();
@@ -59,7 +75,7 @@ async function main(){
     assert.equal(await page.locator('[data-testid="stException"]').count(),0);
     assert.deepEqual(errors,[]);
     console.log(JSON.stringify({passed:true,browser:browser.version(),tsv_paste:true,utf8_file:true,utf16_preview:true,
-      stale_preview_cleared:true,duplicate_id_blocked:true,leading_zeroes_preserved:true,template_download:true}));
+      stale_preview_cleared:true,duplicate_id_blocked:true,leading_zeroes_preserved:true,template_download:true,common_password:!!fixture.common_password}));
   }finally{await context.close();await browser.close();}
 }
 main().catch(error=>{console.error(error.message);process.exitCode=1;});

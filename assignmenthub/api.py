@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
@@ -14,7 +15,7 @@ import uuid
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 from starlette.concurrency import run_in_threadpool
@@ -38,10 +39,6 @@ class Password(Model):
     confirm_password: str = Field(max_length=128)
 
 
-class Code(Model):
-    code: str = Field(max_length=128)
-
-
 class FileDeclaration(Model):
     name: str = Field(min_length=1, max_length=255)
     size: StrictInt
@@ -57,6 +54,7 @@ class UploadStart(Model):
 class RosterApply(Model):
     rows: list[dict] = Field(min_length=1, max_length=10000)
     update_existing: StrictBool = False
+    common_temporary_password: str | None = Field(default=None, max_length=8)
 
 
 class Active(Model):
@@ -192,14 +190,6 @@ def create_app(config: Config):
     @app.get("/api/auth/me")
     def me(token=Depends(bearer)):
         return service.public_user(service.authenticate(token, allow_restricted=True))
-
-    @app.post("/api/auth/bridge")
-    def bridge(token=Depends(bearer)):
-        return {"code": service.make_grant(token, "bridge"), "expires_in": 120}
-
-    @app.post("/api/auth/exchange")
-    def exchange(body: Code):
-        return service.consume_grant(body.code, "bridge")
 
     @app.get("/api/assignments")
     def assignments(token=Depends(bearer)):
@@ -398,7 +388,7 @@ def create_app(config: Config):
 
     @app.post("/api/admin/roster/apply")
     def apply_roster(body: RosterApply, token=Depends(bearer)):
-        return service.roster_apply(token, body.rows, body.update_existing)
+        return service.roster_apply(token, body.rows, body.update_existing, body.common_temporary_password)
 
     @app.post("/api/admin/users/{user_pk}/reset")
     def reset(user_pk: str, token=Depends(bearer)):
@@ -464,6 +454,33 @@ def create_app(config: Config):
     @app.get("/upload")
     def upload_page():
         return FileResponse(static / "upload.html", media_type="text/html")
+
+    @app.post("/upload")
+    async def authenticated_upload_page(request: Request):
+        # A normal form navigation carries the existing login in the POST body.
+        # No connection code, credential URL, cookie, or persistent browser storage.
+        raw = await request.body()
+        if len(raw) > 2048:
+            fail(413, "제출 화면 요청이 너무 큽니다.")
+        try:
+            values = parse_qs(raw.decode("utf-8"), max_num_fields=2, keep_blank_values=True)
+        except (ValueError, UnicodeDecodeError):
+            fail(422, "제출 화면 요청 형식을 확인하세요.")
+        if set(values) - {"token", "assignment_id"} or any(len(v) != 1 for v in values.values()):
+            fail(422, "제출 화면 요청 형식을 확인하세요.")
+        token = values.get("token", [""])[0]
+        user = await run_in_threadpool(service.authenticate, token)
+        assignment_id = values.get("assignment_id", [""])[0]
+        if len(assignment_id) > 128:
+            fail(422, "과제 정보를 확인하세요.")
+        payload = json.dumps({"token": token, "user": service.public_user(user),
+                              "must_change_password": False, "assignment_id": assignment_id},
+                             ensure_ascii=True).replace("<", "\\u003c")
+        document = (static / "upload.html").read_text(encoding="utf-8")
+        document = document.replace('<section id="auth" class="card">', '<section id="auth" class="card hidden" hidden>')
+        document = document.replace("<!-- authenticated-session -->",
+                                    '<script id="session-data" type="application/json">' + payload + '</script>')
+        return HTMLResponse(document)
 
     return app
 

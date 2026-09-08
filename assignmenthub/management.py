@@ -130,12 +130,13 @@ class Catalog:
 
     def create(self, config: Config, admin_id: str, password: str, confirm: str) -> Path:
         from assignmenthub.service import Service
+        from assignmenthub.passwords import valid_password_length
         if not admin_id.strip() or len(admin_id.strip()) > 128:
             raise ValueError("관리자 ID를 1~128자로 입력하세요.")
         if password != confirm:
             raise ValueError("관리자 비밀번호 확인이 일치하지 않습니다.")
-        if not 12 <= len(password) <= 128:
-            raise ValueError("관리자 비밀번호를 12~128자로 입력하세요.")
+        if not valid_password_length(password):
+            raise ValueError("관리자 비밀번호를 8~128자로 입력하세요.")
         path = self.directory / f"{config.instance_id}.json"
         with StorageLock(self.directory, "다른 관리창에서 과정 설정을 변경 중입니다. 잠시 뒤 다시 시도하세요."):
             self.check_unique(config)

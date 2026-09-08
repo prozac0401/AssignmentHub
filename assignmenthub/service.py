@@ -24,6 +24,7 @@ from fastapi import HTTPException
 
 from .config import Config
 from .db import Store
+from .passwords import temporary_password, valid_password_length, valid_temporary_password
 
 ACTIVE = ("uploading", "paused", "verifying", "finalizing")
 TERMINAL = ("completed", "failed", "cancelled", "expired")
@@ -119,8 +120,8 @@ class Service:
 
     @staticmethod
     def password_policy(password):
-        if not isinstance(password, str) or not 12 <= len(password) <= 128:
-            fail(422, "비밀번호는 12~128자여야 합니다.")
+        if not valid_password_length(password):
+            fail(422, "비밀번호는 8~128자여야 합니다.")
 
     def _new_session(self, db, user, restricted=False, parent=None):
         token = secrets.token_urlsafe(32)
@@ -201,17 +202,18 @@ class Service:
             self.audit(db, user["user_id"], "password_changed", user["id"])
 
     def make_grant(self, token, kind, object_id=None):
+        if kind != "download":
+            fail(404, "지원하지 않는 권한 요청입니다.")
         with self.store.connect(write=True) as db:
             self.authenticate(token, db=db)
-            session = db.execute("SELECT * FROM sessions WHERE digest=?", (self.digest(token),)).fetchone()
-            if kind == "bridge" and session["parent_digest"]:
-                fail(403, "연결된 업로더에서 다시 연결 코드를 발급할 수 없습니다. 원래 화면에서 발급하세요.")
-            code = secrets.token_urlsafe(24) if kind == "download" else secrets.token_hex(8).upper()
+            code = secrets.token_urlsafe(24)
             db.execute("DELETE FROM grants WHERE expires < ?", (time.time(),))
             db.execute("INSERT INTO grants VALUES (?,?,?,?,?)", (self.digest(code), self.digest(token), kind, object_id, time.time() + 120))
             return code
 
     def consume_grant(self, code, kind):
+        if kind != "download":
+            fail(404, "지원하지 않는 권한 요청입니다.")
         with self.store.connect(write=True) as db:
             row = db.execute("SELECT * FROM grants WHERE digest=? AND kind=?", (self.digest(code.strip()), kind)).fetchone()
             if not row or row["expires"] <= time.time():
@@ -223,8 +225,6 @@ class Service:
             if session["parent_digest"] and not db.execute("SELECT 1 FROM sessions WHERE digest=? AND expires>?", (session["parent_digest"], time.time())).fetchone():
                 fail(401, "상위 로그인이 만료되었습니다.")
             db.execute("DELETE FROM grants WHERE digest=?", (self.digest(code.strip()),))
-            if kind == "bridge":
-                return self._new_session(db, user, parent=row["session_digest"])
             return dict(user), row["object_id"], dict(session)
 
     def roster_preview(self, token, content):
@@ -290,8 +290,10 @@ class Service:
         except csv.Error:
             fail(422, f"TSV {reader.line_num}행 부근을 읽을 수 없습니다. 따옴표와 셀 길이를 확인하세요.")
 
-    def roster_apply(self, token, rows, update_existing=False):
+    def roster_apply(self, token, rows, update_existing=False, common_temporary_password=None):
         admin = self.authenticate(token, admin=True)
+        if common_temporary_password is not None and not valid_temporary_password(common_temporary_password):
+            fail(422, "공통 임시비밀번호는 영문·숫자 8자리(8바이트)로 입력하세요.")
         if not isinstance(rows, list) or not 1 <= len(rows) <= 10000:
             fail(422, "1~10,000행의 명단이 필요합니다.")
         clean, seen = [], set()
@@ -310,7 +312,7 @@ class Service:
         prepared = {}
         for uid, name, group in clean:
             if uid not in existing:
-                password = secrets.token_urlsafe(15)
+                password = common_temporary_password if common_temporary_password is not None else temporary_password()
                 prepared[uid] = (password, PASSWORDS.hash(password))
         created, updated = [], 0
         with self.store.connect(write=True) as db:
@@ -329,12 +331,13 @@ class Service:
                     password, hashed = prepared[uid]
                     db.execute("INSERT INTO users(id,user_id,name,group_name,role,password_hash) VALUES (?,?,?,?,'student',?)", (uuid.uuid4().hex, uid, name, group, hashed))
                     created.append({"user_id": uid, "name": name, "temporary_password": password})
-            self.audit(db, admin["user_id"], "roster_apply", detail=f"created={len(created)},updated={updated}")
+            mode = "common" if common_temporary_password is not None else "individual"
+            self.audit(db, admin["user_id"], "roster_apply", detail=f"created={len(created)},updated={updated},temporary_password_mode={mode}")
         return {"created": created, "updated": updated}
 
     def reset_password(self, token, user_pk):
         admin = self.authenticate(token, admin=True)
-        password = secrets.token_urlsafe(15)
+        password = temporary_password()
         hashed = PASSWORDS.hash(password)
         with self.store.connect(write=True) as db:
             self.authenticate(token, admin=True, db=db)

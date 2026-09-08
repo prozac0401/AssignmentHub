@@ -30,10 +30,11 @@
 | `GET /auth/me` | 현재 사용자. 제한 세션에서도 허용 |
 | `POST /auth/password` | `{current_password,new_password,confirm_password}` → 변경 안내; 재로그인 필요 |
 | `POST /auth/logout` | 해당 로그인 및 연결 세션 무효화 |
-| `POST /auth/bridge` | 직접 로그인한 정상 세션에서 `{code,expires_in:120}` 발급. 연결로 파생된 세션은 재발급 불가 |
-| `POST /auth/exchange` | `{code}` → 연결된 로그인 결과. 코드는 한 번만 사용 |
+| `POST /upload` (API 접두사 없음) | 수업 화면의 폼 본문 `{token,assignment_id}`로 현재 로그인과 선택한 과제를 전달하여 제출 HTML 반환 |
 
-일회용 코드는 Streamlit과 업로더 사이의 명시적 연결에 사용합니다. 연결 세션이 다시 연결 세션을 만드는 중첩은 거절합니다. 업로더는 직접 로그인도 지원합니다. 토큰은 브라우저 JavaScript 메모리에만 보관하며 새로고침 후 재로그인합니다.
+v1.3.0에서는 `/auth/bridge`와 `/auth/exchange`를 제거했습니다. `POST /upload`는 기존 세션을 검증하고 새 세션을 발급하지 않습니다. 정상 로그인이 있어야 열 수 있으며, 첫 비밀번호 변경 전·로그아웃·계정 초기화·비활성화·다른 과정의 토큰은 거절합니다. 응답은 `no-store`이고 토큰을 URL·쿠키·브라우저 저장소에 보관하지 않습니다. `GET /upload`는 직접 로그인 화면입니다.
+
+일반 비밀번호는 8~128자입니다. `/admin/roster/apply`의 선택 필드 `common_temporary_password`에 영문·숫자 8자리를 지정하면 이번 명단의 신규 계정에만 같은 임시비밀번호를 적용합니다. 생략 또는 `null`이면 개인별 8자리 자동 발급입니다. 빈 문자열·공백·한글·기호 또는 다른 길이는 전체 요청을 거절합니다. 초기화는 해당 계정에 새로운 개인별 8자리를 발급합니다.
 
 ## 과제·업로드·이력
 

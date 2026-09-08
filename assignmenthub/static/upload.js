@@ -2,8 +2,8 @@
 // Credentials and one-time tickets exist only in memory, never in URLs or storage.
 const $=id=>document.getElementById(id);
 const state={token:null,user:null,info:{},quota:null,assignments:[],selected:[],upload:null,
-  resume:null,requestId:null,manifest:null,running:false,cancelling:false,stopped:false,xhr:null,worker:null,workerReject:null};
-const hidden=(id,hide=true)=>$(id).classList.toggle('hidden',hide);
+  resume:null,requestId:null,manifest:null,running:false,cancelling:false,stopped:false,xhr:null,worker:null,workerReject:null,initialAssignment:null};
+const hidden=(id,hide=true)=>{const node=$(id);node.hidden=hide;node.classList.toggle('hidden',hide);};
 const bytes=n=>{n=Number(n)||0;if(n>=1073741824)return (n/1073741824).toFixed(2)+' GiB';if(n>=1048576)return (n/1048576).toFixed(2)+' MiB';if(n>=1024)return (n/1024).toFixed(1)+' KiB';return n+' B';};
 const exact=n=>bytes(n)+' ('+Number(n).toLocaleString('ko-KR')+' B)';
 const labels={uploading:'전송 중',paused:'일시 중지',verifying:'검증 중',finalizing:'저장 중',completed:'제출 완료',failed:'실패',cancelled:'취소됨',expired:'보관 기간 만료'};
@@ -31,7 +31,7 @@ function controls(running) {
 function checkStop(){if(state.stopped)throw new Error('일시 중지했습니다. 파일과 작업을 보관하고 있습니다. 다시 시도로 이어 올릴 수 있습니다.');}
 function stop(){state.stopped=true;if(state.xhr)state.xhr.abort();if(state.worker){state.worker.terminate();state.worker=null;if(state.workerReject)state.workerReject(new Error('해시 확인을 중지했습니다. 다시 시도할 수 있습니다.'));state.workerReject=null;}}
 async function authenticate(result) {
-  state.token=result.token;state.user=result.user;$('password').value='';$('bridge').value='';
+  state.token=result.token;state.user=result.user;$('password').value='';
   hidden('auth');hidden('password-panel',!result.must_change_password);hidden('workspace');
   if(result.must_change_password){notice('최초 로그인 또는 초기화 상태입니다. 관리 화면에서 비밀번호 변경을 먼저 완료하세요.');state.token=null;return;}
   notice('과제와 저장 용량을 확인하고 있습니다.');$('identity').textContent=state.user.name+' · '+state.user.user_id;
@@ -40,11 +40,11 @@ async function authenticate(result) {
 async function refresh() {
   const [assignments,quota,unfinished,history]=await Promise.all([api('/assignments'),api('/quota'),api('/uploads'),api('/submissions?all_versions=true')]);
   state.assignments=assignments;state.quota=quota;
-  const previous=$('assignment').value;$('assignment').replaceChildren();
+  const previous=$('assignment').value||state.initialAssignment;state.initialAssignment=null;$('assignment').replaceChildren();
   for(const a of assignments){const option=element('option',a.title+(a.is_open?'':' · 접수 종료'));option.value=a.id;option.disabled=!a.is_open;$('assignment').append(option);}
-  const chosen=assignments.find(a=>a.id===previous&&a.is_open)||assignments.find(a=>a.is_open);
+  const chosen=assignments.find(a=>a.id===previous)||assignments.find(a=>a.is_open);
   if(chosen)$('assignment').value=chosen.id;
-  $('assignment-description').textContent=chosen?(chosen.description||'선택한 과제에 제출할 파일을 아래에서 선택하세요.'):'접수 중인 과제가 없습니다. 신규 제출을 시작할 수 없습니다.';
+  $('assignment-description').textContent=chosen?(chosen.is_open?(chosen.description||'선택한 과제에 제출할 파일을 아래에서 선택하세요.'):'신규 제출 접수가 종료되었습니다. 기존 미완료 작업은 이어 올리기에서 선택하세요.'):'접수 중인 과제가 없습니다. 신규 제출을 시작할 수 없습니다.';
   if(state.resume){$('assignment').value=state.resume.assignment_id;$('assignment').disabled=true;}
   $('quota-used').textContent=bytes(quota.used_bytes)+' / '+bytes(quota.quota_bytes);
   $('quota-detail').textContent='진행 중 예약 '+bytes(quota.reserved_bytes)+' · 이번 선택 '+bytes(state.selected.reduce((n,f)=>n+f.size,0));
@@ -179,7 +179,6 @@ function renderHistory(items) {
     for(const f of u.files){const row=element('div',undefined,'history-file');row.append(element('span',f.name+' · '+bytes(f.size)));const button=element('button','다운로드','secondary');button.onclick=()=>download(f);row.append(button);entry.append(row);}$('history-list').append(entry);}
 }
 $('login-form').onsubmit=async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;try{await authenticate(await api('/auth/login',{method:'POST',json:{user_id:$('user-id').value,password:$('password').value}}));}catch(error){notice(error.message,true);}finally{button.disabled=false;}};
-$('bridge-form').onsubmit=async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;try{await authenticate(await api('/auth/exchange',{method:'POST',json:{code:$('bridge').value.trim()}}));}catch(error){notice(error.message,true);}finally{button.disabled=false;}};
 $('logout').onclick=async()=>{try{await api('/auth/logout',{method:'POST'});}catch(error){notice(error.message,true);return;}state.token=null;state.user=null;fresh();hidden('workspace');hidden('auth',false);notice('로그아웃했습니다.');};
 $('files').onchange=()=>{state.selected=Array.from($('files').files);state.manifest=null;state.requestId=null;if(!state.resume)state.upload=null;notice('');selection();};
 const dropZone=document.querySelector('.drop-zone');
@@ -200,5 +199,13 @@ $('cancel').onclick=async()=>{
     fresh();notice('업로드를 취소했습니다. 예약 용량과 임시 파일이 정리됩니다.');await refresh();
   }catch(error){notice(error.message,true);}finally{state.cancelling=false;$('cancel').disabled=false;controls(state.running);}
 };
-api('/info').then(info=>{state.info=info;$('course').textContent=info.course_name||'과제 제출';document.title=(info.course_name||'AssignmentHub')+' · 과제 제출';}).catch(error=>notice(error.message,true));
+async function initialize() {
+  const bootstrap=$('session-data');let session=null;
+  if(bootstrap){session=JSON.parse(bootstrap.textContent);bootstrap.remove();hidden('auth');}
+  try{
+    const info=await api('/info');state.info=info;$('course').textContent=info.course_name||'과제 제출';document.title=(info.course_name||'AssignmentHub')+' · 과제 제출';
+    if(session){state.initialAssignment=session.assignment_id;await authenticate(session);}
+  }catch(error){state.token=null;hidden('workspace');hidden('auth',false);notice(error.message,true);}
+}
+initialize();
 window.addEventListener('beforeunload',event=>{if(state.running){event.preventDefault();event.returnValue='';}});

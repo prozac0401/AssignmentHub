@@ -52,6 +52,8 @@ async function main(){
     catch(error){console.error('Browser launch attempt '+(attempt+1)+': '+safeError(error).slice(0,300));if(attempt===1)throw error;await new Promise(resolve=>setTimeout(resolve,1000));}
   }
   const context=await browser.newContext({acceptDownloads:true,viewport:{width:1440,height:1080}});
+  const obsoleteAuthRequests=[];
+  context.on('request',request=>{if(['/api/auth/bridge','/api/auth/exchange'].includes(new URL(request.url()).pathname))obsoleteAuthRequests.push(request.url());});
   try{
     for(const instance of instances){
       console.log('Browser test: '+instance.instance_id+' Streamlit login');
@@ -74,17 +76,26 @@ async function main(){
         await page.getByRole('button',{name:'로그아웃',exact:true}).waitFor({timeout:30000});
       }
       assert(websocket,'Streamlit websocket connected');
-      console.log('Browser test: '+instance.instance_id+' bridge');
+      console.log('Browser test: '+instance.instance_id+' direct submission');
       if(await page.getByText('과제 제출·나의 이력',{exact:true}).count())await page.getByText('과제 제출·나의 이력',{exact:true}).click();
-      await page.getByRole('button',{name:'일회용 연결 코드 발급',exact:true}).click();
-      const codeElement=page.locator('[data-testid="stCode"] code');await codeElement.waitFor();const code=(await codeElement.innerText()).trim();assert(code.length>5);
+      if(instance.assignment_title){
+        await page.getByRole('combobox').first().click();
+        await page.getByRole('option',{name:instance.assignment_title+' · 접수 중',exact:true}).click();
+      }
+      assert.equal(await page.getByRole('button',{name:'일회용 연결 코드 발급',exact:true}).count(),0);
       assert.equal(await page.locator('[data-testid="stException"]').count(),0);
-      const upload=await context.newPage();upload.on('pageerror',e=>errors.push(e.message));
+      const opened=context.waitForEvent('page');
+      await page.frameLocator('iframe').first().getByRole('button',{name:'파일 제출·이어 올리기 ↗',exact:true}).click();
+      const upload=await opened;upload.on('pageerror',e=>errors.push(e.message));
+      await upload.waitForLoadState('domcontentloaded');
       upload.on('request',request=>{if(new URL(request.url()).pathname==='/api/downloads')console.log('Native download POST Origin: '+(request.headers().origin||'(absent)'));});
-      await upload.goto(instance.url+'/upload');
-      await upload.locator('#bridge').fill(code);await upload.getByRole('button',{name:'코드로 연결',exact:true}).click();
       await upload.locator('#workspace').waitFor({state:'visible'});
-      loggedInUploaders.push({page:upload,instance});
+      assert.equal(await upload.locator('#auth').isVisible(),false);
+      assert.equal(await upload.locator('#bridge').count(),0);
+      assert.equal(new URL(upload.url()).search,'');
+      assert.equal(await upload.locator('#session-data').count(),0);
+      if(instance.assignment_title)assert.equal(await upload.locator('#assignment option:checked').innerText(),instance.assignment_title);
+      loggedInUploaders.push({page:upload,instance,home:page});
       console.log('Browser test: '+instance.instance_id+' real direct upload');
       await upload.locator('#files').setInputFiles(sample);
       assert.equal(await upload.locator('#start').isEnabled(),true);
@@ -109,8 +120,11 @@ async function main(){
         await timeout(interruptedPromise,operationTimeout,'Resume test did not reach second chunk');
         await upload.locator('#pause').click();await waitText(upload,'#status','일시 중지');
         await upload.reload();
-        await upload.locator('#user-id').fill(instance.user_id);await upload.locator('#password').fill(instance.new_password||instance.password);
-        await upload.locator('#login-form button').click();await upload.locator('#workspace').waitFor({state:'visible'});
+        await upload.waitForLoadState('networkidle');
+        if(!await upload.locator('#workspace').isVisible()){
+          await upload.locator('#user-id').fill(instance.user_id);await upload.locator('#password').fill(instance.new_password||instance.password);
+          await upload.locator('#login-form button').click();await upload.locator('#workspace').waitFor({state:'visible'});
+        }
         await upload.locator('#unfinished button').first().click();
         await upload.locator('#files').setInputFiles(sample);await upload.locator('#start').click();
       }
@@ -132,19 +146,27 @@ async function main(){
         await page.getByText('비밀번호 변경',{exact:true}).click();
         await page.getByRole('textbox',{name:'현재 비밀번호 또는 임시비밀번호',exact:true}).waitFor({timeout:60000});
         await page.getByText('과제 제출·나의 이력',{exact:true}).click();
+        if(instance.assignment_title){
+          await page.getByRole('combobox').first().click();
+          await page.getByRole('option',{name:instance.assignment_title+' · 접수 중',exact:true}).click();
+        }
         await page.getByRole('button',{name:'다운로드 준비',exact:true}).first().click();
         const streamlitDownloadEvent=nextDownload(context);
         await page.frameLocator('iframe').last().getByRole('button',{name:'파일 다운로드',exact:true}).click();
         const streamlitDownload=await streamlitDownloadEvent;
         assert.equal(await hashFile(await streamlitDownload.path()),expected,'Streamlit native download SHA-256');
       }
-      const storage=await upload.evaluate(()=>({local:Object.keys(localStorage),session:Object.keys(sessionStorage)}));
-      assert.deepEqual(storage.local,[],'No token persisted in localStorage');assert.deepEqual(storage.session,[],'No token persisted in sessionStorage');
+      const storage=await upload.evaluate(()=>({
+        local:Object.keys(localStorage).filter(key=>!key.startsWith('stActiveTheme-')),
+        session:Object.keys(sessionStorage),
+        credentialPresent:[...Object.values(localStorage),...Object.values(sessionStorage)].some(value=>value.includes(state.token))}));
+      assert.deepEqual(storage.local,[],'Only Streamlit display preferences may persist');assert.deepEqual(storage.session,[],'No token persisted in sessionStorage');
+      assert.equal(storage.credentialPresent,false,'No login credential persisted');
       const cookies=await context.cookies();const scoped=cookies.filter(c=>c.name==='_streamlit_xsrf'&&c.path==='/ui/'+instance.instance_id+'/');
       assert.equal(scoped.length,1,'Streamlit XSRF cookie scoped to instance base path');
       await upload.screenshot({path:path.join(directory,'uploader-'+instance.instance_id+'.png'),fullPage:true,timeout:10000});
       const completed=await upload.evaluate(()=>({upload_id:state.upload.id,submission_number:state.upload.submission_number}));
-      results.push({instance_id:instance.instance_id,bytes:fs.statSync(sample).size,sha256:expected,sha256_match:true,websocket:true,password_change:!!instance.new_password,browser_reload_resume:!!instance.resume_test,cookie_path:scoped[0].path,upload_url:new URL(upload.url()).pathname,...completed});
+      results.push({instance_id:instance.instance_id,bytes:fs.statSync(sample).size,sha256:expected,sha256_match:true,websocket:true,direct_submission:true,password_change:!!instance.new_password,browser_reload_resume:!!instance.resume_test,cookie_path:scoped[0].path,upload_url:new URL(upload.url()).pathname,...completed});
     }
     for(const {page} of loggedInUploaders){
       const status=await page.evaluate(async()=>{const response=await fetch('/api/auth/me',{headers:{Authorization:'Bearer '+state.token},credentials:'omit'});return response.status;});
@@ -155,6 +177,14 @@ async function main(){
       const denied=await context.request.get(instances[0].url+'/api/auth/me',{headers:{Authorization:'Bearer '+foreignToken}});
       assert.equal(denied.status(),401,'Other instance bearer token rejected');
     }
+    const attached=loggedInUploaders.find(entry=>!entry.instance.resume_test);
+    if(attached){
+      await attached.home.getByRole('button',{name:'로그아웃',exact:true}).click();
+      await attached.home.getByRole('button',{name:'로그인',exact:true}).waitFor();
+      const revoked=await attached.page.evaluate(async()=>{const response=await fetch('/api/quota',{headers:{Authorization:'Bearer '+state.token}});return response.status;});
+      assert.equal(revoked,401,'Logging out of the class revokes the submission window');
+    }
+    assert.deepEqual(obsoleteAuthRequests,[],'No connection code requests');
     assert.deepEqual(errors,[],'No browser script errors');
     const report={passed:true,browser:browser.version(),platform:os.platform()+' '+os.release(),elapsed_seconds:(Date.now()-started)/1000,results,artifacts:directory};
     fs.writeFileSync(path.join(directory,'result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));

@@ -42,6 +42,10 @@ async function main(){
   await admin.locator('input[type=file]').setInputFiles(path.resolve('templates/users_template.tsv'));
   await admin.getByRole('button',{name:'명단 검증 및 미리보기',exact:true}).click();
   await admin.getByRole('button',{name:'검증된 명단 반영',exact:true}).waitFor();
+  await admin.getByText('신규 수강생에게 공통 임시비밀번호 사용',{exact:true}).click();
+  const common=crypto.randomBytes(4).toString('hex');secrets.push(common);
+  await admin.getByRole('textbox',{name:'이 차수의 공통 임시비밀번호',exact:true}).fill(common);
+  await admin.getByRole('button',{name:'검증된 명단 반영',exact:true}).evaluate(el=>el.scrollIntoView({block:'end'}));
   await shot(admin,'08-roster-preview');
   await admin.getByRole('button',{name:'검증된 명단 반영',exact:true}).click();
   await admin.getByRole('button',{name:'임시비밀번호 결과 닫기',exact:true}).waitFor();
@@ -83,22 +87,22 @@ async function main(){
   student=await context.newPage();await login(student,'001',initial);
   await student.getByRole('textbox',{name:'새 비밀번호',exact:true}).waitFor();
   await shot(student,'11-first-password');
-  const password=crypto.randomBytes(24).toString('base64url');secrets.push(password);
+  const password=crypto.randomBytes(4).toString('hex');secrets.push(password);
   await student.getByRole('textbox',{name:'현재 비밀번호 또는 임시비밀번호',exact:true}).fill(initial);
   await student.getByRole('textbox',{name:'새 비밀번호',exact:true}).fill(password);
   await student.getByRole('textbox',{name:'새 비밀번호 확인',exact:true}).fill(password);
   await student.getByRole('button',{name:'비밀번호 변경',exact:true}).click();
   await student.getByRole('textbox',{name:'로그인 ID',exact:true}).waitFor();
   await login(student,'001',password);
-  await student.getByRole('button',{name:'일회용 연결 코드 발급',exact:true}).click();
-  const codeElement=student.locator('[data-testid="stCode"] code');await codeElement.waitFor();
-  const code=(await codeElement.innerText()).trim();secrets.push(code);
-  await shot(student,'12-student-home',[student.locator('[data-testid="stCode"]')]);
-  upload=await context.newPage();await upload.goto(f.url+'/upload');
-  await shot(upload,'13-upload-connect');
-  await upload.locator('#bridge').fill(code);await upload.getByRole('button',{name:'코드로 연결',exact:true}).click();
+  await student.getByRole('combobox').first().click();
+  await student.getByRole('option',{name:'1주차 실습 과제 · 접수 중',exact:true}).click();
+  await shot(student,'12-student-home');
+  const opened=context.waitForEvent('page');
+  await student.frameLocator('iframe').first().getByRole('button',{name:'파일 제출·이어 올리기 ↗',exact:true}).click();
+  upload=await opened;await upload.waitForLoadState('domcontentloaded');
   await upload.locator('#workspace').waitFor({state:'visible'});
-  await upload.locator('#assignment').selectOption({label:'1주차 실습 과제'});
+  assert.equal(await upload.locator('#assignment option:checked').innerText(),'1주차 실습 과제');
+  await shot(upload,'13-upload-connect');
   const dropped=await upload.evaluateHandle(()=>{const transfer=new DataTransfer();transfer.items.add(new File(['sample'],'아주_긴_이름의_과제_제출_파일_'.repeat(6)+'.txt',{type:'text/plain'}));return transfer;});
   await upload.locator('.drop-zone').dispatchEvent('drop',{dataTransfer:dropped});await dropped.dispose();
   assert.equal(await upload.evaluate(()=>state.selected.length),1);
@@ -119,8 +123,11 @@ async function main(){
   await upload.locator('#pause').click();await upload.locator('#status').filter({hasText:'일시 중지'}).waitFor();
   await upload.locator('#progress-panel').scrollIntoViewIfNeeded();await shot(upload,'15-upload-paused');
   const confirmed=await upload.evaluate(()=>state.upload.files[0].offset);assert(confirmed>0&&confirmed<data.length);
-  await upload.reload();await upload.locator('#user-id').fill('001');await upload.locator('#password').fill(password);
-  await upload.locator('#login-form button').click();await upload.locator('#workspace').waitFor({state:'visible'});
+  await upload.reload();await upload.waitForLoadState('networkidle');
+  if(!await upload.locator('#workspace').isVisible()){
+   await upload.locator('#user-id').fill('001');await upload.locator('#password').fill(password);
+   await upload.locator('#login-form button').click();await upload.locator('#workspace').waitFor({state:'visible'});
+  }
   await upload.locator('#unfinished button').first().click();await upload.locator('#files').setInputFiles([sample,readme]);
   await upload.evaluate(()=>window.scrollTo(0,260));await shot(upload,'16-resume-selected');
   await upload.locator('#start').click();await upload.locator('#receipt').waitFor({state:'visible',timeout:120000});
@@ -172,7 +179,7 @@ async function main(){
   assert.deepEqual(errors,[]);
   const report={passed:true,browser:browser.version(),captured_at:new Date().toISOString(),fictional_course:'파이썬 기초 실습',student_id:'001',
    ui_roster_import:'TSV paste and file upload',duplicate_roster_blocked:true,roster_update_and_new_student:true,password_reset:true,
-   private_csv_download:true,assignment_created:true,assignment_closed:true,first_password_changed:true,one_time_bridge:true,
+    private_csv_download:true,assignment_created:true,assignment_closed:true,first_password_changed:true,common_temporary_password:true,direct_submission:true,
    network_interruption_simulated:'Second chunk aborted by Playwright; subsequent transfer uses real server responses',
    browser_reload_resume:true,confirmed_bytes_before_reload:confirmed,file_bytes:data.length,download_sha256:digest,
    download_matches_original:true,multiple_files:2,resubmission_preserves_both_versions:true,submission_csv_download:true,

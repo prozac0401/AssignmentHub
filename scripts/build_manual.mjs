@@ -38,7 +38,7 @@ const cover=presentation.slides.add();cover.background.fill='#F0F2FF';
 text(cover,'AssignmentHub',92,208,1390,120,94,true);
 text(cover,'시나리오별 사용자 매뉴얼',98,343,1370,85,60,true);
 text(cover,'무설치 실행과 TSV 명단 입력',100,470,1350,55,34,false,green);
-text(cover,'v1.2.0\n2026년 9월 8일',100,690,1200,100,27,false,muted);
+text(cover,'v1.3.0\n2026년 9월 8일',100,690,1200,100,27,false,muted);
 cover.speakerNotes.textFrame.setText('운영자는 시나리오 01~04를 먼저 확인합니다. 수강생은 05~08을 참고합니다. 배포용 퀵가이드에는 운영자와 수강생 절차를 각각 한 쪽에 정리했습니다.');
 for(let i=0;i<content.length;i++){
  const c=content[i],slide=base(c.title,i+2);

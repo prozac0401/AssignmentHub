@@ -323,13 +323,14 @@ def test_s01_untrusted_names_never_control_storage_path(hub, name):
             assert storage_path.name != name
 
 
-def test_bridge_one_time_logout_and_download_ticket(hub):
+def test_existing_login_opens_upload_and_download_ticket_stays_one_time(hub):
     client, _, admin = hub
     session = student(client, admin)
-    code = client.post("/api/auth/bridge", headers=auth(session)).json()["code"]
-    exchanged = client.post("/api/auth/exchange", json={"code": code})
-    assert exchanged.status_code == 200, exchanged.text
-    assert client.post("/api/auth/exchange", json={"code": code}).status_code in (400, 401, 403)
+    opened = client.post("/upload", data={"token": session["token"]})
+    assert opened.status_code == 200
+    assert 'id="session-data"' in opened.text
+    assert client.post("/api/auth/bridge", headers=auth(session)).status_code == 404
+    assert client.post("/api/auth/exchange", json={"code": "old-code"}).status_code == 404
     completed = complete_one(client, session)
     file_id = completed["files"][0]["id"]
     ticket = client.post(f"/api/files/{file_id}/ticket", headers=auth(session)).json()["ticket"]

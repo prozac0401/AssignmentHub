@@ -103,7 +103,7 @@ def test_relocated_server_lifecycle(distribution, restricted_env, tmp_path):
         "c=Config(instance_id='portable_'+uuid.uuid4().hex[:10], course_name='내장 배포 검증', "
         "port=internal_port(), public_host='127.0.0.1', bind_host='127.0.0.1', "
         "storage_root=str(Path(sys.argv[1]).parent/'store'), min_free_bytes=0, chunk_bytes=8)\n"
-        "Service(c).bootstrap_admin('admin','Portable-test-password-93')\n"
+        "Service(c).bootstrap_admin('admin','Port1234')\n"
         "c.save(Path(sys.argv[1]))\n", encoding="utf-8")
     python = distribution / "runtime" / "python" / "python.exe"
     subprocess.run([str(python), "-X", "utf8", "-B", str(bootstrap), str(config)],
@@ -120,12 +120,18 @@ def test_relocated_server_lifecycle(distribution, restricted_env, tmp_path):
             assert client.get(url + "/api/health").status_code == 200
             assert client.get(url, follow_redirects=True).status_code == 200
             assert client.get(url + "/upload").status_code == 200
-            admin = login(client, "admin", "Portable-test-password-93")
+            admin = login(client, "admin", "Port1234")
             roster = client.post("/api/admin/roster/preview", headers=auth(admin),
                                  content=(distribution / "templates" / "users_template.tsv").read_bytes())
             assert roster.status_code == 200 and roster.json()["valid"], roster.text
             assert [row["user_id"] for row in roster.json()["rows"]] == ["001", "002"]
             session = student(client, admin)
+            opened = client.post("/upload", data={"token": session["token"]})
+            assert opened.status_code == 200 and 'id="session-data"' in opened.text
+            common = client.post("/api/admin/roster/apply", headers=auth(admin), json={
+                "rows": [{"user_id": "002", "name": "공통 비밀번호 학생"}], "common_temporary_password": "Class123"})
+            assert common.status_code == 200 and common.json()["created"][0]["temporary_password"] == "Class123"
+            assert login(client, "002", "Class123")["must_change_password"]
             payload = "내장 Python 전송 확인".encode("utf-8")
             completed = complete_one(client, session, payload)
             file_id = completed["files"][0]["id"]

@@ -40,7 +40,7 @@ def main():
             page+=1;active=True
             role='운영자용' if page==1 else '수강생용'
             flow.append(Paragraph(role+' 퀵가이드',title))
-            flow.append(Paragraph('AssignmentHub v1.2.0 · 2026-09-08',small))
+            flow.append(Paragraph('AssignmentHub v1.3.0 · 2026-09-08',small))
             if page==2:
                 flow.append(Paragraph('수업 주소: ____________________________<br/>과제명: _______________________________',body))
                 flow.append(Spacer(1,4))
@@ -62,7 +62,7 @@ def main():
             flow.append(Paragraph(rich(line),body if is_step else note))
     target.parent.mkdir(parents=True,exist_ok=True)
     def footer(canvas,doc):
-        canvas.setTitle('AssignmentHub v1.2.0 운영자·수강생 퀵가이드')
+        canvas.setTitle('AssignmentHub v1.3.0 운영자·수강생 퀵가이드')
         canvas.setAuthor('AssignmentHub')
         canvas.setFont('Malgun',8)
         canvas.setFillColor(colors.HexColor('#647087'))

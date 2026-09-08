@@ -146,15 +146,15 @@ def test_full_file_hash_rejects_different_reselected_content(hub):
     assert quota["used_bytes"] == quota["reserved_bytes"] == 0
 
 
-def test_s01_origin_actual_length_expiry_and_bridge_logout(hub):
+def test_s01_origin_expiry_and_direct_upload_logout(hub):
     client, _, admin = hub
     user = student(client, admin)
     assert client.get("/api/quota", headers={**auth(user), "Origin": "http://evil.example"}).status_code == 403
-    code = client.post("/api/auth/bridge", headers=auth(user)).json()["code"]
-    bridge = client.post("/api/auth/exchange", json={"code": code}).json()
-    assert client.post("/api/auth/bridge", headers=auth(bridge)).status_code == 403
+    assert client.post("/upload", data={"token": user["token"]}).status_code == 200
+    assert client.post("/upload", data={"token": user["token"]}, headers={"Origin": "http://evil.example"}).status_code == 403
     client.post("/api/auth/logout", headers=auth(user))
-    assert client.get("/api/quota", headers=auth(bridge)).status_code == 401
+    assert client.post("/upload", data={"token": user["token"]}).status_code == 401
+    assert client.get("/api/quota", headers=auth(user)).status_code == 401
     fresh = login(client, "001", NEW_PASSWORD)
     with client.app.state.service.store.connect(write=True) as db:
         db.execute("UPDATE sessions SET expires=0 WHERE digest=?", (client.app.state.service.digest(fresh["token"]),))

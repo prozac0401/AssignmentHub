@@ -121,10 +121,13 @@ def main():
         dialog.save_button.invoke()
         pump(root, lambda: not dialog.winfo_exists() and len(manager.courses) == 2 and not manager.jobs)
         second_config = manager.selected().config
+        second_path = manager.selected().path
         manager.buttons["start"].invoke()
         pump(root, lambda: not manager.busy_paths and not manager.jobs, timeout=180)
         assert status(config)["running"] and status(second_config)["running"]
         capture(root, root, output / "34-two-courses.png")
+        manager.tree.selection_set(str(second_path))
+        manager.selection()
         manager.buttons["stop"].invoke()
         pump(root, lambda: not manager.busy_paths and not manager.jobs, timeout=120)
         assert status(config)["running"] and not status(second_config)["running"]

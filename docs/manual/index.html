@@ -1,14 +1,14 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AssignmentHub v1.2.0 시나리오별 사용자 매뉴얼</title><style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:#202539;background:#f7f8fc;font:17px/1.8 "Malgun Gothic",sans-serif}a{color:#4338ca}header{padding:48px max(24px,calc((100% - 1300px)/2));background:#eeedff}h1{font-size:38px;margin:0}header p{margin:12px 0}main{max-width:1340px;margin:auto;padding:32px 24px;display:grid;grid-template-columns:250px 1fr;gap:44px}nav{position:sticky;top:24px;align-self:start}nav a{display:block;margin:0 0 12px;text-decoration:none;font-size:15px}section{background:white;padding:32px 38px;margin-bottom:32px;scroll-margin-top:20px}h2{font-size:28px;line-height:1.5;margin:0 0 8px}h3{font-size:22px;margin:36px 0 16px}li{padding:5px 0}.meta,figcaption{color:#647087;font-size:14px}.note{border-left:3px solid #a5a0fa;padding:8px 18px;color:#4b5563}.done{border-top:1px solid #dce0ec;padding-top:20px}figure{margin:24px 0}img{display:block;width:100%;height:auto}pre{overflow:auto;background:#f1f3f9;padding:20px;font:16px/1.8 Consolas,"Malgun Gothic",monospace;tab-size:14}footer{padding:24px;text-align:center;color:#647087;font-size:14px}@media(max-width:800px){main{display:block;padding:18px}nav{position:static;margin-bottom:24px}section{padding:24px 18px}header{padding:32px 24px}h1{font-size:30px}}@media print{body{background:white;font-size:11pt}nav,header .downloads,figcaption{display:none}main{display:block;padding:0}section{padding:0;break-before:page}h2,h3{break-after:avoid}figure{break-inside:avoid}img{max-height:18cm;object-fit:contain}a{color:inherit;text-decoration:none}header{padding:0;background:white}}</style></head><body><header><h1>AssignmentHub 사용자 매뉴얼</h1><p>v1.2.0 · 무설치 실행 · TSV 명단 입력 · 12개 사용 시나리오</p><p class="downloads"><a href="AssignmentHub_퀵가이드.pdf">2쪽 퀵가이드</a> · <a href="AssignmentHub_사용자_매뉴얼.pdf">상세 PDF</a> · <a href="AssignmentHub_사용자_매뉴얼.pptx">편집용 PPTX</a></p><p>예시 인물과 수업은 가상입니다. 캡처의 로컬 주소와 임시 경로는 실제 교육장 IP와 운영용 저장 폴더로 바꿔 사용하세요.</p></header><main><nav aria-label="시나리오 목차"><a href="#scenario-01">01. 처음 수업 준비</a><a href="#scenario-02">02. TSV 명단 등록</a><a href="#scenario-03">03. 추가 등록·그룹 변경·초기화</a><a href="#scenario-04">04. 과제 생성과 접수 종료</a><a href="#scenario-05">05. 첫 로그인과 제출 창 연결</a><a href="#scenario-06">06. 여러 파일 제출과 완료 확인</a><a href="#scenario-07">07. 중단 후 이어 올리기</a><a href="#scenario-08">08. 수정본 재제출</a><a href="#scenario-09">09. 미제출자·파일·용량 확인</a><a href="#scenario-10">10. 두 수업 동시 운영</a><a href="#scenario-11">11. 종료·백업·복원</a><a href="#scenario-12">12. 접속·로그인·전송 문제</a></nav><article><section id="scenario-01"><h2>01. 처음 수업 준비</h2>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AssignmentHub v1.3.0 시나리오별 사용자 매뉴얼</title><style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:#202539;background:#f7f8fc;font:17px/1.8 "Malgun Gothic",sans-serif}a{color:#4338ca}header{padding:48px max(24px,calc((100% - 1300px)/2));background:#eeedff}h1{font-size:38px;margin:0}header p{margin:12px 0}main{max-width:1340px;margin:auto;padding:32px 24px;display:grid;grid-template-columns:250px 1fr;gap:44px}nav{position:sticky;top:24px;align-self:start}nav a{display:block;margin:0 0 12px;text-decoration:none;font-size:15px}section{background:white;padding:32px 38px;margin-bottom:32px;scroll-margin-top:20px}h2{font-size:28px;line-height:1.5;margin:0 0 8px}h3{font-size:22px;margin:36px 0 16px}li{padding:5px 0}.meta,figcaption{color:#647087;font-size:14px}.note{border-left:3px solid #a5a0fa;padding:8px 18px;color:#4b5563}.done{border-top:1px solid #dce0ec;padding-top:20px}figure{margin:24px 0}img{display:block;width:100%;height:auto}pre{overflow:auto;background:#f1f3f9;padding:20px;font:16px/1.8 Consolas,"Malgun Gothic",monospace;tab-size:14}footer{padding:24px;text-align:center;color:#647087;font-size:14px}@media(max-width:800px){main{display:block;padding:18px}nav{position:static;margin-bottom:24px}section{padding:24px 18px}header{padding:32px 24px}h1{font-size:30px}}@media print{body{background:white;font-size:11pt}nav,header .downloads,figcaption{display:none}main{display:block;padding:0}section{padding:0;break-before:page}h2,h3{break-after:avoid}figure{break-inside:avoid}img{max-height:18cm;object-fit:contain}a{color:inherit;text-decoration:none}header{padding:0;background:white}}</style></head><body><header><h1>AssignmentHub 사용자 매뉴얼</h1><p>v1.3.0 · 무설치 실행 · TSV 명단 입력 · 12개 사용 시나리오</p><p class="downloads"><a href="AssignmentHub_퀵가이드.pdf">2쪽 퀵가이드</a> · <a href="AssignmentHub_사용자_매뉴얼.pdf">상세 PDF</a> · <a href="AssignmentHub_사용자_매뉴얼.pptx">편집용 PPTX</a></p><p>예시 인물과 수업은 가상입니다. 캡처의 로컬 주소와 임시 경로는 실제 교육장 IP와 운영용 저장 폴더로 바꿔 사용하세요.</p></header><main><nav aria-label="시나리오 목차"><a href="#scenario-01">01. 처음 수업 준비</a><a href="#scenario-02">02. TSV 명단 등록</a><a href="#scenario-03">03. 추가 등록·그룹 변경·초기화</a><a href="#scenario-04">04. 과제 생성과 접수 종료</a><a href="#scenario-05">05. 첫 로그인과 바로 제출</a><a href="#scenario-06">06. 여러 파일 제출과 완료 확인</a><a href="#scenario-07">07. 중단 후 이어 올리기</a><a href="#scenario-08">08. 수정본 재제출</a><a href="#scenario-09">09. 미제출자·파일·용량 확인</a><a href="#scenario-10">10. 두 수업 동시 운영</a><a href="#scenario-11">11. 종료·백업·복원</a><a href="#scenario-12">12. 접속·로그인·전송 문제</a></nav><article><section id="scenario-01"><h2>01. 처음 수업 준비</h2>
 <p class="meta">운영자 / PDF·PPTX 3~7쪽</p>
 <p><strong>상황</strong> 처음 사용하는 운영자가 파이썬 기초 실습 과정을 열고 수강생의 접속을 준비합니다.</p>
 <h3>01. 배포 ZIP과 첫 실행</h3><ol>
-<li><strong>다운로드와 압축 해제</strong> v1.2.0의 Windows x64 배포 ZIP 전체를 쓰기 가능한 폴더에 풉니다. Python과 라이브러리가 포함되어 있습니다.</li>
+<li><strong>다운로드와 압축 해제</strong> v1.3.0의 Windows x64 배포 ZIP 전체를 쓰기 가능한 폴더에 풉니다. Python과 라이브러리가 포함되어 있습니다.</li>
 <li><strong>관리창 실행</strong> 폴더 안의 start.bat를 더블클릭합니다. 관리창이 열리면 새 과정 만들기를 선택합니다.</li>
 </ol><p class="note">ZIP 내부에서 직접 실행하지 마세요. setup.bat는 선택적인 오프라인 점검이며 설치 도구가 아닙니다.</p>
 <figure><a href="screenshots/01-manager-empty.png"><img loading="lazy" src="screenshots/01-manager-empty.png" alt="01. 배포 ZIP과 첫 실행 실제 화면"></a><figcaption>그림을 열면 원본 크기로 볼 수 있습니다.</figcaption></figure>
 <h3>새 과정과 관리자 계정</h3><ol>
 <li><strong>수업 예시</strong> 과정명은 파이썬 기초 실습으로 입력합니다. 안내 IP는 실제 서버 PC의 교육장 네트워크 주소를 선택합니다.</li>
-<li><strong>저장 위치와 계정</strong> 과정 ID·포트·저장 폴더를 확인합니다. 관리자 ID와 12~128자의 비밀번호를 정하고 확인란에도 입력합니다.</li>
+<li><strong>저장 위치와 계정</strong> 과정 ID·포트·저장 폴더를 확인합니다. 관리자 ID와 8~128자의 비밀번호를 정하고 확인란에도 입력합니다.</li>
 </ol><p class="note">캡처의 127.0.0.1과 임시 경로는 예시입니다. 다른 PC에는 실제 서버의 IP와 포트를 안내합니다.</p>
 <figure><a href="screenshots/02-create-course.png"><img loading="lazy" src="screenshots/02-create-course.png" alt="새 과정과 관리자 계정 실제 화면"></a><figcaption>그림을 열면 원본 크기로 볼 수 있습니다.</figcaption></figure>
 <h3>용량과 전송 설정</h3><ol>
@@ -40,18 +40,18 @@
 <li><strong>미리보기와 반영</strong> 명단 검증 및 미리보기를 누릅니다. 오류가 없고 ID·이름·그룹이 맞으면 검증된 명단 반영을 누릅니다.</li>
 </ol><p class="note">user_id와 name은 필수, group은 선택입니다. 엑셀에서 헤더를 포함한 셀 범위를 복사해도 됩니다.</p>
 <figure><a href="screenshots/25-tsv-roster.png"><img loading="lazy" src="screenshots/25-tsv-roster.png" alt="02. TSV 명단 붙여넣기 실제 화면"></a><figcaption>그림을 열면 원본 크기로 볼 수 있습니다.</figcaption></figure>
-<h3>TSV 파일로 명단 등록</h3><ol>
-<li><strong>파일 작성</strong> 명단 TSV 템플릿을 내려받거나 동봉한 01-first-roster.tsv를 수정합니다. ID는 001처럼 텍스트 그대로 작성합니다.</li>
-<li><strong>파일 업로드</strong> TSV 파일 업로드를 선택하고 .tsv 또는 .txt 파일을 올립니다. 검증 후 미리보기를 확인해 반영합니다.</li>
-</ol><p class="note">UTF-8 또는 BOM이 있는 UTF-16을 지원합니다. 최대 5 MiB, 10,000명, 30열입니다.</p>
-<figure><a href="screenshots/08-roster-preview.png"><img loading="lazy" src="screenshots/08-roster-preview.png" alt="TSV 파일로 명단 등록 실제 화면"></a><figcaption>그림을 열면 원본 크기로 볼 수 있습니다.</figcaption></figure>
+<h3>TSV 파일과 공통 임시비밀번호</h3><ol>
+<li><strong>TSV 파일 등록</strong> 명단 TSV 템플릿 또는 01-first-roster.tsv를 수정해 올립니다. 검증 후 ID·이름·그룹을 확인합니다.</li>
+<li><strong>공통 비밀번호(선택)</strong> 신규 수강생에게 공통 임시비밀번호 사용을 켜고 영문·숫자 8자리를 입력합니다. 이번 명단의 신규 계정에 같은 값이 적용됩니다.</li>
+</ol><p class="note">기본은 개인별 임시비밀번호 8자리입니다. 공통값은 명단 등록 때 지정하며, 추가 등록 시 같은 값을 다시 입력합니다.</p>
+<figure><a href="screenshots/08-roster-preview.png"><img loading="lazy" src="screenshots/08-roster-preview.png" alt="TSV 파일과 공통 임시비밀번호 실제 화면"></a><figcaption>그림을 열면 원본 크기로 볼 수 있습니다.</figcaption></figure>
 <h3>중복 명단 오류 수정</h3><ol>
 <li><strong>오류 예시</strong> 001을 서로 다른 두 사람에게 입력하면 중복 ID 오류가 표시됩니다. 검증된 명단 반영은 사용할 수 없습니다.</li>
 <li><strong>수정 후 재검증</strong> 두 번째 ID를 002로 고친 뒤 다시 검증합니다. 입력 내용이나 입력 방법이 바뀌면 이전 미리보기는 해제됩니다.</li>
 </ol><p class="note">엑셀에서 이미 숫자로 바뀌어 사라진 0은 복원하지 않습니다. 001과 1은 서로 다른 계정입니다.</p>
 <figure><a href="screenshots/26-tsv-duplicate.png"><img loading="lazy" src="screenshots/26-tsv-duplicate.png" alt="중복 명단 오류 수정 실제 화면"></a><figcaption>그림을 열면 원본 크기로 볼 수 있습니다.</figcaption></figure>
 <h3>임시비밀번호 전달</h3><ol>
-<li><strong>신규 계정 확인</strong> 반영 직후 신규 사용자의 임시비밀번호가 표시됩니다. 임시비밀번호 결과 CSV를 내려받아 학생별로 전달합니다.</li>
+<li><strong>신규 계정 확인</strong> 신규 계정의 임시비밀번호는 영문·숫자 8자리입니다. 임시비밀번호 결과 CSV를 내려받아 본인 ID와 함께 전달합니다.</li>
 <li><strong>결과 닫기</strong> 전달을 마치면 임시비밀번호 결과 닫기를 누릅니다. 화면 예시는 결과를 닫은 뒤의 사용자 목록입니다.</li>
 </ol><p class="note">명단 입력은 TSV입니다. 비밀번호와 현황의 내보내기 파일은 CSV이며, 초기 비밀번호는 다시 조회할 수 없습니다.</p>
 <figure><a href="screenshots/09-users-registered.png"><img loading="lazy" src="screenshots/09-users-registered.png" alt="임시비밀번호 전달 실제 화면"></a><figcaption>그림을 열면 원본 크기로 볼 수 있습니다.</figcaption></figure>
@@ -84,24 +84,24 @@
 <li><strong>종료의 범위</strong> 이후 신규 제출 시작을 막습니다. 종료 전에 시작한 유효한 업로드는 보관 시간 내에 완료할 수 있습니다.</li>
 </ol><p class="note">즉시 모든 전송을 멈춰야 한다면 학생에게 안내하고 서버를 중지합니다. 접수 종료만으로 기존 전송을 끊지 않습니다.</p>
 <figure><a href="screenshots/29-assignment-closed.png"><img loading="lazy" src="screenshots/29-assignment-closed.png" alt="과제 접수 종료 실제 화면"></a><figcaption>그림을 열면 원본 크기로 볼 수 있습니다.</figcaption></figure>
-<p class="done"><strong>완료 확인</strong> 학생에게 안내한 과제가 접수 중으로 보이고, 마감 후에는 신규 제출을 시작할 수 없습니다. 기존 진행 작업의 완료 가능 여부를 별도로 안내합니다.</p></section><section id="scenario-05"><h2>05. 첫 로그인과 제출 창 연결</h2>
+<p class="done"><strong>완료 확인</strong> 학생에게 안내한 과제가 접수 중으로 보이고, 마감 후에는 신규 제출을 시작할 수 없습니다. 기존 진행 작업의 완료 가능 여부를 별도로 안내합니다.</p></section><section id="scenario-05"><h2>05. 첫 로그인과 바로 제출</h2>
 <p class="meta">수강생 / PDF·PPTX 16~18쪽</p>
 <p><strong>상황</strong> 학생 001이 전달받은 계정으로 처음 로그인하고 파일 제출 창에 연결합니다.</p>
 <h3>05. 학생의 첫 로그인</h3><ol>
 <li><strong>받은 계정 입력</strong> 서버 주소를 열고 ID 001과 본인의 임시비밀번호로 로그인합니다. ID의 앞자리 0과 대소문자를 그대로 입력합니다.</li>
-<li><strong>비밀번호 변경</strong> 현재 임시비밀번호와 새로운 12~128자 비밀번호를 입력합니다. 변경을 마치고 새 비밀번호로 다시 로그인합니다.</li>
+<li><strong>비밀번호 변경</strong> 현재 임시비밀번호와 새로운 8~128자 비밀번호를 입력합니다. 변경을 마치고 새 비밀번호로 다시 로그인합니다.</li>
 </ol><p class="note">첫 비밀번호 변경을 마쳐야 과제를 조회하고 파일을 제출할 수 있습니다.</p>
 <figure><a href="screenshots/11-first-password.png"><img loading="lazy" src="screenshots/11-first-password.png" alt="05. 학생의 첫 로그인 실제 화면"></a><figcaption>그림을 열면 원본 크기로 볼 수 있습니다.</figcaption></figure>
-<h3>파일 제출 화면 연결</h3><ol>
-<li><strong>연결 코드 사용</strong> 일회용 연결 코드 발급을 눌러 코드를 복사합니다. 파일 제출·이어 올리기 화면 열기로 제출 창을 엽니다.</li>
-<li><strong>접속 계정 확인</strong> 제출 창에서 코드로 연결합니다. 연결 후 표시된 ID가 본인의 ID인지 확인합니다.</li>
-</ol><p class="note">코드는 짧은 시간 동안 한 번만 사용합니다. 예시 화면의 코드 영역은 가렸습니다.</p>
-<figure><a href="screenshots/12-student-home.png"><img loading="lazy" src="screenshots/12-student-home.png" alt="파일 제출 화면 연결 실제 화면"></a><figcaption>그림을 열면 원본 크기로 볼 수 있습니다.</figcaption></figure>
-<h3>제출 창에서 직접 로그인</h3><ol>
-<li><strong>코드가 만료된 경우</strong> 새 연결 코드를 받거나 제출 창의 ID와 비밀번호로 로그인합니다. 비밀번호는 처음 변경한 새 비밀번호입니다.</li>
-<li><strong>다시 연 창</strong> 새로고침이나 브라우저 재실행 후에도 본인 계정으로 로그인할 수 있습니다. 이어 올릴 작업은 로그인 후 선택합니다.</li>
-</ol><p class="note">다른 사람의 계정으로 제출하면 그 계정의 이력에 남습니다. 본인 계정과 과제명을 확인하세요.</p>
-<figure><a href="screenshots/13-upload-connect.png"><img loading="lazy" src="screenshots/13-upload-connect.png" alt="제출 창에서 직접 로그인 실제 화면"></a><figcaption>그림을 열면 원본 크기로 볼 수 있습니다.</figcaption></figure>
+<h3>과제 선택 후 바로 제출</h3><ol>
+<li><strong>제출할 과제 선택</strong> 수업 화면에서 안내받은 과제를 고릅니다. 과제 설명과 접수 상태를 확인합니다.</li>
+<li><strong>파일 제출 버튼</strong> 파일 제출·이어 올리기를 누릅니다. 현재 로그인한 계정과 선택한 과제로 제출 창이 바로 열립니다.</li>
+</ol><p class="note">코드 발급이나 입력 없이 제출할 수 있습니다. 수업 화면에서 로그아웃하면 열어 둔 제출 창의 로그인도 종료됩니다.</p>
+<figure><a href="screenshots/12-student-home.png"><img loading="lazy" src="screenshots/12-student-home.png" alt="과제 선택 후 바로 제출 실제 화면"></a><figcaption>그림을 열면 원본 크기로 볼 수 있습니다.</figcaption></figure>
+<h3>파일 선택 화면 확인</h3><ol>
+<li><strong>본인 계정과 과제 확인</strong> 제출 창에 본인의 ID와 선택한 과제가 표시됩니다. 파일을 선택한 뒤 제출 시작을 누릅니다.</li>
+<li><strong>주소로 직접 접속한 경우</strong> 제출 창 주소를 직접 열었거나 로그인이 끝났다면 본인 ID와 변경한 비밀번호로 로그인합니다.</li>
+</ol><p class="note">파일 전송이 중단되면 미완료 작업을 선택해 이어 올릴 수 있습니다. 처음 선택한 원본 파일을 그대로 보관하세요.</p>
+<figure><a href="screenshots/13-upload-connect.png"><img loading="lazy" src="screenshots/13-upload-connect.png" alt="파일 선택 화면 확인 실제 화면"></a><figcaption>그림을 열면 원본 크기로 볼 수 있습니다.</figcaption></figure>
 <p class="done"><strong>완료 확인</strong> 첫 비밀번호 변경과 재로그인을 마친 뒤, 제출 창에 본인의 ID가 표시됩니다.</p></section><section id="scenario-06"><h2>06. 여러 파일 제출과 완료 확인</h2>
 <p class="meta">수강생 / PDF·PPTX 19~20쪽</p>
 <p><strong>상황</strong> 학생 001이 1주차_실습결과.txt와 제출_설명.txt를 하나의 묶음으로 제출합니다.</p>
@@ -205,5 +205,5 @@
 <li><strong>이어 올리기 불가</strong> 같은 계정과 원본 파일인지 확인합니다. 취소하거나 기본 24시간 보관 기간이 지난 작업은 새로 제출합니다.</li>
 <li><strong>창이 좁은 경우</strong> 메뉴가 접혀 있으면 왼쪽 위에서 펼칩니다. 이어 올리기와 저장 공간은 아래로 스크롤하고, 표는 표 안에서 가로 이동합니다.</li>
 <li><strong>실행 파일 오류</strong> 배포 ZIP 전체를 새 폴더에 다시 풉니다. setup.bat와 logs/manager-startup.log로 오류 내용을 확인합니다.</li>
-</ol><p class="note">문의할 때 과정명·ID·제출번호·오류 문구를 전달합니다. 비밀번호나 연결 코드는 보내지 마세요.</p>
+</ol><p class="note">문의할 때 과정명·ID·제출번호·오류 문구를 전달합니다. 비밀번호는 보내지 마세요.</p>
 <p class="done"><strong>완료 확인</strong> 문제가 서버 실행, 주소·네트워크, 계정, 원본 파일 또는 공간 중 어디에 있는지 확인하고 필요한 조치를 안내합니다.</p></section></article></main><footer>2026-09-08 개정 · 모든 화면과 예시는 이 폴더에서 오프라인으로 볼 수 있습니다.</footer></body></html>

@@ -7,20 +7,18 @@
   <script src="/upload-static/sha256.js" defer></script><script src="/upload-static/upload.js" defer></script>
 </head>
 <body>
+<!-- authenticated-session -->
 <a class="skip-link" href="#main">본문으로 이동</a>
 <header><a class="brand" href="/" aria-label="AssignmentHub 홈"><b aria-hidden="true">AH</b><span>AssignmentHub</span></a><div id="course">과제 제출</div><a href="/">내 수업으로 돌아가기 ↗</a></header>
 <main id="main">
   <div class="intro"><span class="eyebrow">ASSIGNMENT WORKSPACE</span><h1>파일 제출</h1><p>과제를 선택하고 파일을 올려 주세요. 제출번호가 나오면 완료입니다.</p></div>
   <div id="notice" class="notice hidden" role="alert"></div>
   <section id="auth" class="card">
-    <h2>제출 화면 연결</h2><p class="muted">관리 화면에서 발급한 일회용 연결 코드를 입력하거나, 같은 계정으로 로그인하세요.</p>
-    <div class="auth-grid">
-      <form id="bridge-form"><h3 class="form-title">수업 화면에서 바로 연결</h3><label for="bridge">일회용 연결 코드</label><input id="bridge" placeholder="발급받은 코드를 붙여넣으세요" autocomplete="off" maxlength="128" required><button type="submit">코드로 연결</button><p class="form-note">수업 화면의 ‘일회용 연결 코드 발급’에서 받을 수 있습니다.</p></form>
-      <form id="login-form"><h3 class="form-title">내 계정으로 로그인</h3><label for="user-id">로그인 ID</label><input id="user-id" placeholder="전달받은 ID" autocomplete="username" required maxlength="128"><label for="password">비밀번호</label><input id="password" type="password" autocomplete="current-password" required maxlength="128"><button type="submit" class="secondary">로그인</button></form>
-    </div>
+    <h2>로그인</h2><p class="muted">수업 화면의 ‘파일 제출·이어 올리기’ 버튼으로 열면 바로 제출할 수 있습니다. 이 주소로 직접 접속한 경우에는 로그인하세요.</p>
+    <form id="login-form"><label for="user-id">로그인 ID</label><input id="user-id" placeholder="전달받은 ID" autocomplete="username" required maxlength="128"><label for="password">비밀번호</label><input id="password" type="password" autocomplete="current-password" required maxlength="128"><button type="submit">로그인</button></form>
   </section>
   <section id="password-panel" class="card hidden"><h2>비밀번호 변경이 필요합니다</h2><p>관리 화면에서 비밀번호를 변경한 뒤 새 비밀번호로 로그인하세요.</p><a class="button" href="/">비밀번호 변경 화면 열기</a></section>
-  <div id="workspace" class="hidden">
+  <div id="workspace" class="hidden" hidden>
     <div class="session"><span id="identity"></span><button id="logout" class="text-button">로그아웃</button></div>
     <div class="layout">
       <div>

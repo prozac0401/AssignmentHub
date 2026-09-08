@@ -135,7 +135,7 @@ def password_change(required: bool = False):
     st.subheader("비밀번호 변경")
     if required:
         st.info("최초 로그인 또는 관리자 초기화 상태입니다. 비밀번호를 변경하고 다시 로그인해야 과제에 접근할 수 있습니다.")
-    st.caption("12~128자로 입력하세요. 현재 비밀번호와 같은 값은 사용할 수 없습니다. 붙여넣기를 사용할 수 있습니다.")
+    st.caption("8~128자로 입력하세요. 현재 비밀번호와 같은 값은 사용할 수 없습니다. 붙여넣기를 사용할 수 있습니다.")
     with st.form("password_change", clear_on_submit=True):
         current = st.text_input("현재 비밀번호 또는 임시비밀번호", type="password", max_chars=128)
         new = st.text_input("새 비밀번호", type="password", max_chars=128)
@@ -175,6 +175,20 @@ def submission_details(item: dict, key: str, admin: bool = False):
             file_download(file, f"download_{key}_{index}")
 
 
+def upload_button(assignment_id: str = ""):
+    """Open the uploader with the current login via a same-origin POST navigation."""
+    token = html.escape(st.session_state.token, quote=True)
+    assignment_id = html.escape(assignment_id, quote=True)
+    components.html(
+        '<form action="/upload" method="post" target="_blank" rel="noopener">'
+        f'<input type="hidden" name="token" value="{token}">'
+        f'<input type="hidden" name="assignment_id" value="{assignment_id}">'
+        '<button type="submit" style="font:15px Segoe UI,Malgun Gothic,sans-serif;border:0;border-radius:8px;'
+        'background:#4f46e5;color:white;padding:13px 22px;cursor:pointer">파일 제출·이어 올리기 ↗</button></form>',
+        height=62,
+    )
+
+
 def student_home():
     assignments = call("/assignments")
     quota = call("/quota")
@@ -193,15 +207,9 @@ def student_home():
     else:
         st.info("등록된 과제가 없습니다.")
     with st.container(border=True):
-        st.markdown("**파일 제출 준비**")
-        st.write("연결 코드를 발급한 뒤 파일 제출 화면에 입력하세요. 같은 계정으로 로그인할 수도 있습니다.")
-        if st.button("일회용 연결 코드 발급", type="primary"):
-            bridge = call("/auth/bridge", "POST")
-            st.session_state.bridge = bridge
-        if st.session_state.get("bridge"):
-            st.code(st.session_state.bridge["code"], language=None)
-            st.caption(f"발급 후 {st.session_state.bridge['expires_in']}초 동안 한 번만 사용할 수 있습니다. 다른 사람에게 공유하지 마세요.")
-        st.link_button("파일 제출·이어 올리기 화면 열기 ↗", "/upload", type="primary")
+        st.markdown("**파일 제출**")
+        st.write("아래 버튼을 누르면 파일을 선택할 수 있습니다. 제출번호가 표시되면 완료입니다.")
+        upload_button(assignment["id"] if assignments else "")
     uploads = call("/uploads")
     if uploads:
         with st.expander(f"미완료 업로드 {len(uploads)}건"):
@@ -222,7 +230,12 @@ def student_home():
 
 
 def admin_roster():
+    if st.session_state.pop("clear_roster_password", False):
+        st.session_state.pop("roster_common_password", None)
+        st.session_state.pop("roster_use_common_password", None)
     st.subheader("사용자 명단 등록")
+    if st.session_state.get("roster_success"):
+        st.success(st.session_state.pop("roster_success"))
     st.caption("첫 행에 user_id와 name을 넣고 열은 탭으로 구분하세요. group은 선택입니다. ID는 텍스트 그대로 읽으며 앞자리 0과 대소문자를 구분합니다.")
     template = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates", "users_template.tsv")
     if os.path.isfile(template):
@@ -261,12 +274,22 @@ def admin_roster():
             st.error(str(error))
         st.dataframe([{"행": r.get("row"), "user_id": r.get("user_id"), "name": r.get("name"), "group": r.get("group", ""), "반영": r.get("action", ""), "기존 정보": json.dumps({k: r["existing"].get(k) for k in ("name", "group", "active")}, ensure_ascii=False) if isinstance(r.get("existing"), dict) else "", "오류": "; ".join(map(str, r.get("errors", [])))} for r in preview.get("rows", [])], hide_index=True, use_container_width=True)
         update = st.checkbox("기존 계정의 이름·그룹 변경도 적용합니다. 비밀번호·활성 상태·제출 기록은 유지됩니다.")
+        common = st.checkbox("신규 수강생에게 공통 임시비밀번호 사용", key="roster_use_common_password")
+        common_password = None
+        if common:
+            common_password = st.text_input("이 차수의 공통 임시비밀번호", type="password", max_chars=8,
+                                            key="roster_common_password",
+                                            help="영문·숫자 8자리입니다. 이번 명단의 신규 계정에만 적용하며 추가 등록 시 같은 값을 다시 입력하세요.")
+        st.caption("기본값은 개인별 임시비밀번호 자동 발급(영문·숫자 8자리)입니다. 첫 로그인 후 개인 비밀번호로 변경합니다.")
         if st.button("검증된 명단 반영", disabled=not preview.get("valid"), type="primary"):
             rows = [{k: r.get(k, "") for k in ("user_id", "name", "group")} for r in preview["rows"]]
-            result = call("/admin/roster/apply", "POST", {"rows": rows, "update_existing": update})
+            result = call("/admin/roster/apply", "POST", {"rows": rows, "update_existing": update,
+                                                       "common_temporary_password": common_password})
             st.session_state.credentials = result.get("created", [])
             st.session_state.pop("roster_preview", None)
-            st.success(f"신규 {len(result.get('created', []))}명 등록 · 기존 {result.get('updated', 0)}명 정보 변경")
+            st.session_state.clear_roster_password = True
+            st.session_state.roster_success = f"신규 {len(result.get('created', []))}명 등록 · 기존 {result.get('updated', 0)}명 정보 변경"
+            st.rerun()
     if st.session_state.get("credentials"):
         with st.container(border=True):
             st.warning("신규 사용자의 임시비밀번호입니다. 이 결과를 안전하게 배포하세요. 결과 닫기 또는 로그아웃 후에는 다시 조회할 수 없습니다.")
@@ -459,8 +482,6 @@ def main():
             page = st.radio("메뉴", pages, label_visibility="collapsed", key="navigation")
             st.divider()
             st.caption("표시 시간대: " + info.get("timezone", "Asia/Seoul"))
-            if user["role"] != "admin":
-                st.link_button("브라우저 파일 제출 ↗", "/upload", use_container_width=True)
         {"운영 안내": admin_home, "과제 제출·나의 이력": student_home, "제출 현황": admin_dashboard, "사용자 관리": admin_roster, "과제 관리": admin_assignments, "저장 공간·기록": admin_storage, "비밀번호 변경": password_change}[page]()
     except APIError as exc:
         st.error(str(exc))

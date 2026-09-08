@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "browser": "152.0.4191.66",
+  "platform": "win32 10.0.22631",
+  "elapsed_seconds": 46.075,
+  "results": [
+    {
+      "instance_id": "submit_4bd3fb73",
+      "bytes": 9437213,
+      "sha256": "d3abaaebb8ff0872d13de2bc043cf83f1633d29570cd458d0a7e5f43f77db247",
+      "sha256_match": true,
+      "websocket": true,
+      "direct_submission": true,
+      "password_change": true,
+      "browser_reload_resume": true,
+      "cookie_path": "/ui/submit_4bd3fb73/",
+      "upload_url": "/upload",
+      "upload_id": "80be83e5c41849469c406d820d911680",
+      "submission_number": 1
+    },
+    {
+      "instance_id": "submit_eacabf6e",
+      "bytes": 9437213,
+      "sha256": "d3abaaebb8ff0872d13de2bc043cf83f1633d29570cd458d0a7e5f43f77db247",
+      "sha256_match": true,
+      "websocket": true,
+      "direct_submission": true,
+      "password_change": true,
+      "browser_reload_resume": false,
+      "cookie_path": "/ui/submit_eacabf6e/",
+      "upload_url": "/upload",
+      "upload_id": "3f89cbf97ed54d2aa3966a76ed18ba46",
+      "submission_number": 1
+    }
+  ],
+  "common_password_ui": true,
+  "selected_assignment_preserved": true,
+  "logout_revokes_submission": true,
+  "connection_code_requests": 0
+}

@@ -14,6 +14,7 @@ from tkinter import filedialog, messagebox, ttk
 import webbrowser
 
 from assignmenthub.config import Config
+from assignmenthub.passwords import valid_password_length
 from assignmenthub.desktop_style import ScrollFrame, apply_theme
 from assignmenthub.launcher import PROJECT_ROOT, start, status, stop
 from assignmenthub.management import Catalog, diagnose, gib_bytes, gib_text, network_addresses, state_label
@@ -81,7 +82,7 @@ class CourseDialog(tk.Toplevel):
             self.password = field(basic, 8, "password", "관리자 비밀번호", "", secret=True)
             self.confirm = field(basic, 9, "confirm", "비밀번호 확인", "", secret=True)
             self.show_password = tk.BooleanVar()
-            ttk.Checkbutton(basic, text="비밀번호 표시 (12~128자)", variable=self.show_password,
+            ttk.Checkbutton(basic, text="비밀번호 표시 (8~128자)", variable=self.show_password,
                             command=lambda: [w.configure(show="" if self.show_password.get() else "●") for w in (self.password, self.confirm)]).grid(row=10, column=1, sticky="w")
         else:
             ttk.Label(basic, text="저장 폴더와 과정 ID는 유지됩니다. 접속 주소를 바꾸면 수강생에게 새 주소를 안내하세요.", wraplength=560, style="Muted.TLabel").grid(row=6, column=0, columnspan=2, sticky="w", pady=12)
@@ -131,8 +132,8 @@ class CourseDialog(tk.Toplevel):
             else:
                 config = Config(instance_id=values["instance_id"], storage_root=values["storage_root"], **changes)
                 password, confirm = self.variables["password"].get(), self.variables["confirm"].get()
-                if not values["admin_id"] or password != confirm or not 12 <= len(password) <= 128:
-                    raise ValueError("관리자 ID와 12~128자 비밀번호를 입력하고 비밀번호 확인을 일치시켜 주세요.")
+                if not values["admin_id"] or password != confirm or not valid_password_length(password):
+                    raise ValueError("관리자 ID와 8~128자 비밀번호를 입력하고 비밀번호 확인을 일치시켜 주세요.")
                 task = lambda: self.manager.catalog.create(config, values["admin_id"], password, confirm)
             self.busy = True
             self.error.set("저장하고 있습니다…")

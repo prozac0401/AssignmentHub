@@ -12,6 +12,7 @@ import sys
 from fastapi import HTTPException
 
 from assignmenthub.config import Config
+from assignmenthub.passwords import valid_password_length
 from assignmenthub.launcher import LaunchError, StorageLock, preflight, start, status, stop, supervise
 
 
@@ -45,12 +46,12 @@ def parser() -> argparse.ArgumentParser:
 def _admin_inputs(admin_id: str | None) -> tuple[str, str]:
     if admin_id is None:
         admin_id = input("최초 관리자 ID: ").strip()
-    password = getpass.getpass("최초 관리자 비밀번호 (12~128자): ")
+    password = getpass.getpass("최초 관리자 비밀번호 (8~128자): ")
     repeated = getpass.getpass("비밀번호 확인: ")
     if password != repeated:
         raise LaunchError("비밀번호 확인이 일치하지 않습니다.")
-    if not 12 <= len(password) <= 128:
-        raise LaunchError("비밀번호는 12~128자여야 합니다.")
+    if not valid_password_length(password):
+        raise LaunchError("비밀번호는 8~128자여야 합니다.")
     return admin_id.strip(), password
 
 
