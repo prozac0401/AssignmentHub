@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import csv
 import io
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -9,7 +10,6 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from openpyxl import load_workbook
 
 from assignmenthub.api import create_app
 from assignmenthub.config import Config
@@ -99,40 +99,26 @@ def complete_one(client, session, data=b"hello", name="과제.txt"):
     return response.json()
 
 
-def workbook_bytes(rows, headers=None):
-    book = load_workbook(Path(__file__).parents[1] / "templates" / "users_template.xlsx")
-    sheet = book.worksheets[0]
-    sheet.delete_rows(2, sheet.max_row)
-    if headers:
-        for col, value in enumerate(headers, 1):
-            sheet.cell(1, col, value)
-    for row in rows:
-        sheet.append(row)
-    output = io.BytesIO()
-    book.save(output)
-    return output.getvalue()
+def tsv_bytes(rows, headers=None):
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, delimiter="\t", lineterminator="\r\n")
+    writer.writerow(headers if headers is not None else ["user_id", "name", "group"])
+    writer.writerows(rows)
+    return output.getvalue().encode("utf-8")
 
 
 def test_a01_template_and_roster_validation(hub):
     client, _, admin = hub
-    # Test the exact distributed bytes, without openpyxl re-saving the file
-    # first (which would silently repair missing worksheet dimensions).
-    shipped = (Path(__file__).parents[1] / "templates" / "users_template.xlsx").read_bytes()
+    shipped = (Path(__file__).parents[1] / "templates" / "users_template.tsv").read_bytes()
     preview = client.post("/api/admin/roster/preview", content=shipped, headers=auth(admin))
     assert preview.status_code == 200, preview.text
     assert preview.json()["valid"]
     assert [row["user_id"] for row in preview.json()["rows"]] == ["001", "002"]
-    template = load_workbook(Path(__file__).parents[1] / "templates" / "users_template.xlsx")
-    assert template.worksheets[0]["A2"].value == "001"
-    assert template.worksheets[0]["A2"].data_type == "s"
-    assert template.worksheets[0]["A2"].number_format == "@"
-    assert template.worksheets[0]["A500"].number_format == "@"
-    assert template.worksheets[0].column_dimensions["A"].number_format == "@"
-    good = client.post("/api/admin/roster/preview", content=workbook_bytes([("001", "가", "A")]), headers=auth(admin))
+    good = client.post("/api/admin/roster/preview", content=tsv_bytes([("001", "가", "A")]), headers=auth(admin))
     assert good.status_code == 200, good.text
     assert good.json()["valid"] and good.json()["rows"][0]["user_id"] == "001"
-    for rows in [[("001", "가", "A"), ("001", "나", "B")], [(None, "가", "")], [(1, "가", "")]]:
-        response = client.post("/api/admin/roster/preview", content=workbook_bytes(rows), headers=auth(admin))
+    for rows in [[("001", "가", "A"), ("001", "나", "B")], [(None, "가", "")], [("001", "", "")]]:
+        response = client.post("/api/admin/roster/preview", content=tsv_bytes(rows), headers=auth(admin))
         assert response.status_code == 200, response.text
         assert not response.json()["valid"]
 
@@ -177,10 +163,10 @@ def test_a01_missing_headers_and_existing_preview(hub):
     client, _, admin = hub
     student(client, admin)
     missing = client.post("/api/admin/roster/preview", headers=auth(admin),
-                          content=workbook_bytes([("001", "가", "A")], ["wrong_id", "name", "group"]))
+                          content=tsv_bytes([("001", "가", "A")], ["wrong_id", "name", "group"]))
     assert missing.status_code == 200 and not missing.json()["valid"] and missing.json()["errors"]
     existing = client.post("/api/admin/roster/preview", headers=auth(admin),
-                           content=workbook_bytes([("001", "수정 이름", "A")]))
+                           content=tsv_bytes([("001", "수정 이름", "A")]))
     assert existing.status_code == 200
     assert existing.json()["rows"][0]["existing"]["user_id"] == "001"
     assert existing.json()["rows"][0]["action"] == "update"

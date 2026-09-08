@@ -87,7 +87,7 @@
 | 메서드·경로 | 본문 / 결과 |
 | --- | --- |
 | `GET /admin/users?search=...` | ID·이름·그룹 검색, 활성·변경 필요 상태 |
-| `POST /admin/roster/preview` | 원시 `.xlsx` 본문, 최대 5MiB → `{rows,errors,valid}` |
+| `POST /admin/roster/preview` | 원시 TSV 본문 (`text/tab-separated-values`), 최대 5MiB → `{rows,errors,valid}` |
 | `POST /admin/roster/apply` | `{rows:[{user_id,name,group}],update_existing:false}` → 새 계정의 일회성 임시비밀번호와 수정 건수 |
 | `POST /admin/users/{internal_user_id}/reset` | 새 임시비밀번호 발급, 기존 세션 무효화 |
 | `PATCH /admin/users/{internal_user_id}` | `{active:true 또는 false}` |
@@ -98,4 +98,6 @@
 | `GET /admin/storage` | 완료 사용량·예약·실제 임시 바이트·미기록 예약·볼륨 여유·적용 설정 |
 | `GET /admin/audit` | 최근 관리 작업 기록, 관리자·UTC 시각·대상. 비밀번호·토큰 미포함 |
 
-`roster/preview`의 행은 행 번호, ID/이름/그룹, `action` (`new`, `update`, `unchanged`), `errors`, `existing`를 포함합니다. 오류가 있으면 전체 명단을 수정하고 다시 미리보기합니다. 재등록은 비밀번호 초기화가 아닙니다. `update_existing`을 명시적으로 선택한 경우에만 기존 이름·그룹을 바꾸며 비밀번호·제출·활성 상태는 보존합니다.
+`roster/preview`는 UTF-8(BOM 선택) 또는 UTF-16(BOM 필수) TSV를 읽습니다. 첫 행에 `user_id`, `name`이 각각 한 번 필요하고 `group`은 선택입니다. 모든 값을 텍스트로 읽으므로 `001`과 `1`을 구분합니다. 빈 행은 무시하고 탭·줄바꿈을 포함한 큰따옴표 셀을 지원합니다. 10,000명/30열을 넘거나 인코딩·따옴표 구문이 잘못되면 422, 본문이 5MiB를 넘으면 413을 반환합니다. `.xlsx`와 쉼표 구분 CSV는 TSV 명단으로 처리하지 않습니다.
+
+미리보기의 행은 원본 행 번호, ID/이름/그룹, `action` (`new`, `update`, `unchanged`), `errors`, `existing`를 포함합니다. 오류가 있으면 전체 명단을 수정하고 다시 미리보기합니다. 미리보기는 계정을 생성하지 않습니다. `update_existing`을 명시적으로 선택한 경우에만 기존 이름·그룹을 바꾸며 비밀번호·제출·활성 상태는 보존합니다.

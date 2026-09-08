@@ -7,6 +7,7 @@
 *.json text eol=lf
 *.toml text eol=lf
 *.bat text eol=crlf
+*.tsv text eol=crlf
 *.xlsx binary
 *.pptx binary
 *.png binary

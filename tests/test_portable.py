@@ -121,6 +121,10 @@ def test_relocated_server_lifecycle(distribution, restricted_env, tmp_path):
             assert client.get(url, follow_redirects=True).status_code == 200
             assert client.get(url + "/upload").status_code == 200
             admin = login(client, "admin", "Portable-test-password-93")
+            roster = client.post("/api/admin/roster/preview", headers=auth(admin),
+                                 content=(distribution / "templates" / "users_template.tsv").read_bytes())
+            assert roster.status_code == 200 and roster.json()["valid"], roster.text
+            assert [row["user_id"] for row in roster.json()["rows"]] == ["001", "002"]
             session = student(client, admin)
             payload = "내장 Python 전송 확인".encode("utf-8")
             completed = complete_one(client, session, payload)

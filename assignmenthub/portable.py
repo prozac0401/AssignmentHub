@@ -46,7 +46,7 @@ def check(gui: bool = False, verify: bool = False, quick: bool = False) -> dict:
         raise ValueError("배포 폴더 외부의 Python 검색 경로가 있습니다.")
     modules = ("tkinter", "fastapi", "psutil", "assignmenthub.server_manager") if quick else (
         "ssl", "sqlite3", "tkinter", "fastapi", "uvicorn", "streamlit", "argon2",
-        "openpyxl", "httpx", "portalocker", "psutil", "multipart", "tzdata",
+        "httpx", "portalocker", "psutil", "multipart", "tzdata",
         "numpy", "pandas", "pyarrow", "assignmenthub.server_manager")
     for module in modules:
         importlib.import_module(module)

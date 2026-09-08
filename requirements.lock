@@ -375,10 +375,6 @@ colorama==0.4.6 \
     # via
     #   pytest
     #   uvicorn
-et-xmlfile==2.0.0 \
-    --hash=sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa \
-    --hash=sha256:dab3f4764309081ce75662649be815c4c9081e88f0837825f90fd28317d4da54
-    # via openpyxl
 fastapi==0.116.1 \
     --hash=sha256:c46ac7c312df840f0c9e220f7964bada936781bc4e2e6eb71f1c4d7553786565 \
     --hash=sha256:ed52cbf946abfd70c5a0dccb24673f0670deeb517a88b3544d03c2a6bf283143
@@ -648,10 +644,6 @@ numpy==2.5.3 \
     #   pandas
     #   pydeck
     #   streamlit
-openpyxl==3.1.5 \
-    --hash=sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2 \
-    --hash=sha256:cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050
-    # via -r requirements.in
 packaging==25.0 \
     --hash=sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484 \
     --hash=sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f

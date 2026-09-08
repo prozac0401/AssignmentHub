@@ -223,17 +223,38 @@ def student_home():
 
 def admin_roster():
     st.subheader("사용자 명단 등록")
-    st.caption("ID는 앞뒤 공백을 제거하고 대소문자를 구분합니다. 앞자리 0을 보존하려면 엑셀의 user_id 열을 텍스트로 입력하세요.")
-    template = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates", "users_template.xlsx")
+    st.caption("첫 행에 user_id와 name을 넣고 열은 탭으로 구분하세요. group은 선택입니다. ID는 텍스트 그대로 읽으며 앞자리 0과 대소문자를 구분합니다.")
+    template = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates", "users_template.tsv")
     if os.path.isfile(template):
         with open(template, "rb") as source:
-            st.download_button("명단 엑셀 템플릿 다운로드", source.read(), "users_template.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    roster = st.file_uploader("명단 .xlsx (최대 5 MiB, 과제 파일 업로드용이 아닙니다)", type=["xlsx"], key="roster_file", on_change=lambda: st.session_state.pop("roster_preview", None))
-    if st.button("명단 검증 및 미리보기", disabled=roster is None):
-        if roster.size > 5 * 2**20:
+            st.download_button("명단 TSV 템플릿 다운로드", source.read(), "users_template.tsv", "text/tab-separated-values; charset=utf-8")
+
+    def clear_preview():
+        st.session_state.pop("roster_preview", None)
+
+    method = st.radio("명단 입력 방법", ["직접 붙여넣기", "TSV 파일 업로드"], horizontal=True,
+                      key="roster_method", on_change=clear_preview)
+    if method == "직접 붙여넣기":
+        text = st.text_area("TSV 명단 붙여넣기", height=180, max_chars=5 * 2**20,
+                            placeholder="user_id\tname\tgroup\n001\t홍길동\tA반\n002\t김민수\tB반",
+                            help="엑셀·스프레드시트에서 헤더와 셀 범위를 함께 복사해 붙여넣을 수 있습니다.",
+                            key="roster_text", on_change=clear_preview)
+        content = text.encode("utf-8")
+    else:
+        roster = st.file_uploader("탭으로 구분한 명단 파일 (.tsv 또는 .txt, 최대 5 MiB)",
+                                  type=["tsv", "txt"], key="roster_file", on_change=clear_preview)
+        content = roster.getvalue() if roster is not None else b""
+        st.caption("UTF-8 또는 UTF-16(BOM 포함)로 저장한 TSV를 사용하세요.")
+    # Textarea edits reach Streamlit on blur/submit. Keep its button enabled so
+    # clicking it can commit the first paste without an extra Ctrl+Enter step.
+    if st.button("명단 검증 및 미리보기", disabled=method == "TSV 파일 업로드" and not content):
+        clear_preview()
+        if not content.strip():
+            st.error("헤더를 포함한 TSV 명단을 입력해 주세요.")
+        elif len(content) > 5 * 2**20:
             st.error("명단은 최대 5 MiB입니다.")
         else:
-            st.session_state.roster_preview = call("/admin/roster/preview", "POST", raw=roster.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.session_state.roster_preview = call("/admin/roster/preview", "POST", raw=content, content_type="text/tab-separated-values")
     preview = st.session_state.get("roster_preview")
     if preview:
         for error in preview.get("errors", []):
@@ -298,7 +319,7 @@ def admin_home():
 
     with st.container(border=True):
         st.markdown("**1. 수강생 명단 등록**")
-        st.write(f"현재 활성 수강생 {len(students)}명입니다." if students else "엑셀 템플릿을 내려받아 명단을 입력하고, 미리보기를 확인한 뒤 등록하세요.")
+        st.write(f"현재 활성 수강생 {len(students)}명입니다." if students else "TSV 명단을 붙여넣거나 파일을 올리고, 미리보기를 확인한 뒤 등록하세요.")
         st.caption("처음 등록한 수강생에게는 서로 다른 임시비밀번호가 발급됩니다. 수강생은 첫 로그인 후 새 비밀번호로 변경합니다.")
         if st.button("명단 등록·사용자 관리로 이동", type="primary" if not students else "secondary"):
             navigate("사용자 관리")

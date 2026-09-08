@@ -335,7 +335,7 @@ def main():
                   "browser_verified": False, "server_url": args.url, "instance_info": info,
                   "environment": {"os": platform.platform(), "python": sys.version,
                                   "httpx": httpx.__version__, "psutil": psutil.__version__,
-                                  "installed_versions": {name: importlib.metadata.version(name) for name in ("fastapi", "starlette", "uvicorn", "streamlit", "argon2-cffi", "openpyxl")},
+                                  "installed_versions": {name: importlib.metadata.version(name) for name in ("fastapi", "starlette", "uvicorn", "streamlit", "argon2-cffi")},
                                   "logical_cpus": psutil.cpu_count(), "physical_memory_bytes": psutil.virtual_memory().total},
                   "requested_concurrency": args.users, "observed_transfer_interval_overlap": peak_active,
                   "same_user": args.same_user, "test_user_ids": [row["user_id"] for row in rows],

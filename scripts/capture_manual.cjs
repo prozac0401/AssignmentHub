@@ -29,7 +29,8 @@ async function main(){
   await admin.getByRole('button',{name:'명단 등록·사용자 관리로 이동',exact:true}).waitFor({timeout:60000});
   await shot(admin,'07-admin-home');
   await admin.getByRole('button',{name:'명단 등록·사용자 관리로 이동',exact:true}).click();
-  await admin.locator('input[type=file]').setInputFiles(path.resolve('templates/users_template.xlsx'));
+  await admin.getByText('TSV 파일 업로드',{exact:true}).click();
+  await admin.locator('input[type=file]').setInputFiles(path.resolve('templates/users_template.tsv'));
   await admin.getByRole('button',{name:'명단 검증 및 미리보기',exact:true}).click();
   await admin.getByRole('button',{name:'검증된 명단 반영',exact:true}).waitFor();
   await shot(admin,'08-roster-preview');

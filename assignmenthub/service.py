@@ -15,14 +15,12 @@ import sqlite3
 import threading
 import time
 import uuid
-import zipfile
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from argon2 import PasswordHasher, Type
 from argon2.exceptions import VerificationError, InvalidHashError
 from fastapi import HTTPException
-from openpyxl import load_workbook
 
 from .config import Config
 from .db import Store
@@ -232,41 +230,53 @@ class Service:
     def roster_preview(self, token, content):
         self.authenticate(token, admin=True)
         if len(content) > 5 * 1024**2:
-            fail(413, "명단 파일은 5MiB 이하만 허용됩니다.")
+            fail(413, "명단은 5MiB 이하만 허용됩니다.")
+        if content.startswith(b"PK\x03\x04"):
+            fail(422, "엑셀 파일 대신 TSV 명단을 올리거나 셀을 복사해 붙여넣어 주세요.")
         try:
-            with zipfile.ZipFile(io.BytesIO(content)) as archive:
-                if sum(x.file_size for x in archive.infolist()) > 32 * 1024**2 or len(archive.infolist()) > 200:
-                    fail(413, "압축 해제한 명단이 너무 큽니다.")
-            workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=False)
-            sheet = workbook.worksheets[0]
-            if sheet.max_row > 10001 or sheet.max_column > 30:
+            # Excel's Unicode Text export uses UTF-16 with a BOM. Never guess
+            # legacy encodings or coerce identifiers to numbers.
+            encoding = "utf-16" if content.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
+            text = content.decode(encoding)
+        except UnicodeError:
+            fail(422, "TSV 명단은 UTF-8 또는 BOM이 있는 UTF-16으로 저장하거나 직접 붙여넣어 주세요.")
+        if "\x00" in text:
+            fail(422, "TSV 명단에 읽을 수 없는 문자가 있습니다. UTF-8로 저장하거나 직접 붙여넣어 주세요.")
+        reader = csv.reader(io.StringIO(text, newline=""), delimiter="\t", strict=True)
+        try:
+            headers = next((row for row in reader if any(cell.strip() for cell in row)), [])
+            headers = [cell.strip() for cell in headers]
+            if len(headers) > 30:
                 fail(422, "명단은 10,000명, 30열 이내로 작성하세요.")
-            raw = list(sheet.iter_rows())
-            headers = [c.value for c in raw[0]] if raw else []
             errors = []
             if any(headers.count(key) != 1 for key in ("user_id", "name")) or headers.count("group") > 1:
-                return {"rows": [], "errors": ["user_id와 name 필수 컬럼이 각각 한 번 필요합니다. group은 선택입니다."], "valid": False}
+                return {"rows": [], "errors": ["첫 행을 탭으로 구분하고 user_id와 name을 각각 한 번 넣어 주세요. group은 선택입니다."], "valid": False}
             columns = {key: headers.index(key) for key in ("user_id", "name", "group") if key in headers}
             seen, rows = set(), []
             with self.store.connect() as db:
-                for number, cells in enumerate(raw[1:], 2):
-                    if all(c.value is None for c in cells):
+                while True:
+                    number = reader.line_num + 1
+                    cells = next(reader, None)
+                    if cells is None:
+                        break
+                    if not any(cell.strip() for cell in cells):
                         continue
-                    values = {key: cells[idx].value for key, idx in columns.items()}
+                    if len(rows) >= 10000 or len(cells) > 30:
+                        fail(422, "명단은 10,000명, 30열 이내로 작성하세요.")
+                    values = {key: cells[idx] if idx < len(cells) else "" for key, idx in columns.items()}
                     problems = []
+                    if len(cells) > len(headers):
+                        problems.append("첫 행보다 열이 많습니다. 탭 구분과 따옴표를 확인하세요.")
                     for key in ("user_id", "name"):
-                        val = values.get(key)
-                        if not isinstance(val, str) or not val.strip():
-                            problems.append(f"{key}: 비어 있거나 텍스트가 아닙니다. 숫자형 ID의 앞자리 0은 추정하지 않습니다.")
-                    if any(cells[idx].data_type == "f" for idx in columns.values()):
-                        problems.append("수식 셀은 명단에 사용할 수 없습니다.")
-                    uid = str(values.get("user_id") or "").strip()
-                    name = str(values.get("name") or "").strip()
-                    group = str(values.get("group") or "").strip()
+                        if not values.get(key, "").strip():
+                            problems.append(f"{key}: 필수 값이 비어 있습니다.")
+                    uid = values.get("user_id", "").strip()
+                    name = values.get("name", "").strip()
+                    group = values.get("group", "").strip()
                     if len(uid) > 128 or len(name) > 200 or len(group) > 200 or any(ord(c) < 32 for c in uid):
                         problems.append("ID/이름/그룹 길이 또는 제어문자를 확인하세요.")
                     if uid in seen:
-                        problems.append("파일 내 중복 ID입니다.")
+                        problems.append("명단 내 중복 ID입니다.")
                     seen.add(uid)
                     existing = db.execute("SELECT * FROM users WHERE user_id=?", (uid,)).fetchone()
                     if existing and existing["role"] == "admin":
@@ -277,13 +287,8 @@ class Service:
             if not rows:
                 errors.append("등록할 행이 없습니다.")
             return {"rows": rows, "errors": errors, "valid": not errors and all(not r["errors"] for r in rows)}
-        except HTTPException:
-            raise
-        except Exception:
-            fail(422, "유효한 .xlsx 명단을 읽을 수 없습니다.")
-        finally:
-            if "workbook" in locals():
-                workbook.close()
+        except csv.Error:
+            fail(422, f"TSV {reader.line_num}행 부근을 읽을 수 없습니다. 따옴표와 셀 길이를 확인하세요.")
 
     def roster_apply(self, token, rows, update_existing=False):
         admin = self.authenticate(token, admin=True)
@@ -293,7 +298,7 @@ class Service:
         for row in rows:
             uid = self.valid_user_id(row.get("user_id"))
             if uid in seen:
-                fail(409, "파일 내 중복 ID입니다. 명단 전체가 반영되지 않았습니다.")
+                fail(409, "명단 내 중복 ID입니다. 명단 전체가 반영되지 않았습니다.")
             seen.add(uid)
             name, group = row.get("name"), row.get("group", "")
             if not isinstance(name, str) or not name.strip() or len(name) > 200 or not isinstance(group, str) or len(group) > 200:

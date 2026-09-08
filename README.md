@@ -6,9 +6,9 @@
 
 ## 화면으로 따라 하는 매뉴얼
 
-[27쪽 PPT 매뉴얼 다운로드](docs/manual/AssignmentHub_사용자_매뉴얼.pptx) · [캡처와 단계별 사용 예시](docs/manual/README.md) · [사용자 등록 엑셀 템플릿](templates/users_template.xlsx)
+[27쪽 PPT 매뉴얼 다운로드](docs/manual/AssignmentHub_사용자_매뉴얼.pptx) · [캡처와 단계별 사용 예시](docs/manual/README.md) · [사용자 등록 TSV 템플릿](templates/users_template.tsv)
 
-실제로 실행한 서버 관리창과 브라우저 화면 24개로 과정 생성, 명단 등록, 학생의 첫 로그인, 파일 제출·이어 올리기·다운로드, 제출 현황, 종료와 백업을 설명합니다. 예시 계정으로 전송한 파일은 서버에서 다시 내려받아 원본과 SHA-256이 같은 것을 확인했습니다. 상세 수행 범위와 미검증 항목은 [검증 보고서](docs/test-report.md)에 구분합니다. PPT의 사전 설치 설명은 현재 [무설치 배포 안내](docs/portable-distribution.md)로 대체되며, [Python 내장 배포 검증 결과](docs/portable-test-report.md)를 별도로 제공합니다.
+실제로 실행한 서버 관리창과 브라우저 화면 24개로 과정 생성, 명단 등록, 학생의 첫 로그인, 파일 제출·이어 올리기·다운로드, 제출 현황, 종료와 백업을 설명합니다. 예시 계정으로 전송한 파일은 서버에서 다시 내려받아 원본과 SHA-256이 같은 것을 확인했습니다. 상세 수행 범위와 미검증 항목은 [검증 보고서](docs/test-report.md)에 구분합니다. PPT의 엑셀 명단 등록 설명은 현재 [TSV 입력 안내](docs/admin-guide.md#명단-등록과-임시비밀번호)와 [검증 화면](docs/tsv-test-report.md)을 따릅니다. PPT의 사전 설치 설명은 현재 [무설치 배포 안내](docs/portable-distribution.md)로 대체되며, [Python 내장 배포 검증 결과](docs/portable-test-report.md)를 별도로 제공합니다.
 
 서버 관리창과 수업·제출 화면에 공통 디자인을 적용했습니다. 창 크기에 따라 메뉴·입력란·버튼을 재배치하며 파일 드래그 앤 드롭을 지원합니다. [디자인 참고와 화면 크기 대응](docs/ui-design.md)
 
@@ -16,7 +16,7 @@
 
 ## 더블클릭으로 시작 — 서버 운영자
 
-1. [**`AssignmentHub-1.1.0-windows-x64.zip`**](https://github.com/prozac0401/AssignmentHub/releases/download/v1.1.0/AssignmentHub-1.1.0-windows-x64.zip) 전체를 쓰기 가능한 폴더에 압축 해제합니다. Windows 10/11 x64용이며 Python·Tcl/Tk·라이브러리·Caddy가 모두 포함되어 있습니다.
+1. [**`AssignmentHub-1.2.0-windows-x64.zip`**](https://github.com/prozac0401/AssignmentHub/releases/download/v1.2.0/AssignmentHub-1.2.0-windows-x64.zip) 전체를 쓰기 가능한 폴더에 압축 해제합니다. Windows 10/11 x64용이며 Python·Tcl/Tk·라이브러리·Caddy가 모두 포함되어 있습니다.
 2. 압축 해제한 폴더의 **`start.bat`를 더블클릭**합니다. 별도 설치, 관리자 권한, 인터넷 다운로드 없이 한국어 서버 관리창을 엽니다. ZIP 안에서 직접 실행하지 마세요.
 3. **새 과정 만들기**에서 과정명·수강생 접속 IP·관리자 비밀번호를 입력합니다. 과정 ID와 비어 있는 포트는 제안되며, 저장 폴더를 선택할 수 있습니다. 용량은 GiB 단위로 입력합니다.
 4. 과정 선택 → **서버 시작** → **관리자 화면 열기** 순서로 진행합니다. 웹 관리자 화면의 **운영 안내**에서 명단 등록·과제 설정·접속 주소 안내를 진행합니다.
@@ -41,7 +41,7 @@ manage.bat status --config instances\course_01.json
 
 생성 시 로컬 콘솔에서 관리자 비밀번호를 두 번 입력합니다. 기본 비밀번호는 없습니다. 예시 IP `192.168.0.10`은 **실제 서버 PC의 교육장 네트워크 IP**로 바꾸세요. 수강생에게는 출력된 접속 URL을 안내하며 다른 PC에 `localhost`를 안내하지 않습니다. 방화벽에서 지정한 외부 포트의 교육장 네트워크 접근을 허용해야 합니다.
 
-관리자 로그인 후 **명단 등록**에서 `templates/users_template.xlsx`의 예시 행을 실제 수강생으로 바꾼 파일을 선택하고 미리보기를 확인해 적용합니다. 발급된 서로 다른 임시비밀번호를 각 수강생에게 배포합니다. 수강생은 최초 로그인 후 12~128자 새 비밀번호로 변경하고 다시 로그인합니다.
+관리자 로그인 후 **명단 등록**에서 헤더를 포함한 TSV를 붙여넣거나 `templates/users_template.tsv`의 예시 행을 실제 수강생으로 바꾼 파일을 올립니다. 엑셀·스프레드시트의 셀 범위를 복사해 붙여넣을 수도 있습니다. 필수 열은 `user_id`, `name`이며 `group`은 선택입니다. 미리보기를 확인해 적용한 뒤 발급된 서로 다른 임시비밀번호를 각 수강생에게 배포합니다. 수강생은 최초 로그인 후 12~128자 새 비밀번호로 변경하고 다시 로그인합니다.
 
 ## 두 인스턴스 동시 실행
 
@@ -67,7 +67,7 @@ manage.bat status --config instances\course_02.json
 | `runtime/python/`, `tools/caddy.exe` | 배포 ZIP에 포함된 독립 Python·Tcl/Tk·라이브러리·프록시 |
 | `build_portable.bat`, `scripts/build_portable.py`, `requirements.lock` | 배포본 생성 및 해시 고정 의존성 |
 | `examples/` | 두 인스턴스 설정 예제 |
-| `templates/users_template.xlsx` | 앞자리 0을 보존하는 사용자 등록 템플릿 |
+| `templates/users_template.tsv` | ID를 텍스트로 읽는 탭 구분 사용자 등록 템플릿 |
 | `tests/`, `scripts/load_test.py` | 작은 경계·장애 테스트와 실제 대용량 검증 |
 
 명단 미리보기·재등록, 비밀번호 변경·초기화, 계정 활성화, 과제 접수 제어, 여러 파일 묶음, 재제출 버전, 이어 올리기·취소, 관리자 집계·내보내기, 권한 검사 후 스트리밍 다운로드를 제공합니다. 완료된 제출물의 자동 삭제 및 수강생 삭제, 임의 회원가입, EXE 배포는 초기 범위에 포함하지 않습니다.
