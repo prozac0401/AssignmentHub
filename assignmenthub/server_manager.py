@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 import os
 from pathlib import Path
 import queue
@@ -27,6 +28,13 @@ def open_local(path: Path):
         os.startfile(str(path))
     else:
         subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(path)])
+
+
+@dataclass(frozen=True)
+class ManagerJob:
+    label: str
+    since: float
+    background: bool
 
 
 class CourseDialog(tk.Toplevel):
@@ -156,7 +164,7 @@ class CourseDialog(tk.Toplevel):
             if key in self.variables:
                 self.variables[key].set("")
         self.destroy()
-        self.manager.refresh()
+        self.manager.refresh(background=True)
 
 
 class ServerManager:
@@ -167,6 +175,7 @@ class ServerManager:
         self.executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="manager")
         self.events = queue.Queue()
         self.jobs = {}
+        self._progress_running = False
         self.busy_paths = set()
         self.courses, self.states = {}, {}
         self.selected_path = None
@@ -233,8 +242,13 @@ class ServerManager:
         for key, label, callback in (("start", "▶ 서버 시작", lambda: self.operate("start")), ("stop", "■ 서버 중지", lambda: self.operate("stop")), ("settings", "과정 설정", self.settings), ("diagnose", "접속·오류 점검", self.inspect), ("storage", "저장 폴더", lambda: self.folder(False)), ("logs", "로그 폴더", lambda: self.folder(True))):
             button = ttk.Button(actions, text=label, command=callback, **({"style": "Primary.TButton"} if key == "start" else {}))
             self.buttons[key] = button
-        self.progress = ttk.Progressbar(outer, mode="indeterminate")
-        self.progress.grid(row=7, column=0, sticky="ew", pady=(0, 8))
+        # Keep the layout still when the activity indicator appears or disappears.
+        progress_area = ttk.Frame(outer)
+        progress_area.grid(row=7, column=0, sticky="ew", pady=(0, 8))
+        progress_area.columnconfigure(0, weight=1)
+        self.progress = ttk.Progressbar(progress_area, mode="indeterminate")
+        progress_area.configure(height=self.progress.winfo_reqheight())
+        progress_area.grid_propagate(False)
         self.notice = tk.StringVar(value="과정 목록을 확인하고 있습니다…")
         self.notice_label = ttk.Label(outer, textvariable=self.notice, wraplength=1010, style="Muted.TLabel")
         self.notice_label.grid(row=8, column=0, sticky="ew")
@@ -245,8 +259,8 @@ class ServerManager:
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(100, self.poll)
         self.root.after(5000, self.auto_refresh)
-        self.submit("네트워크 주소 확인", network_addresses, lambda result: setattr(self, "addresses", result))
-        self.refresh()
+        self.submit("네트워크 주소 확인", network_addresses, lambda result: setattr(self, "addresses", result), background=True)
+        self.refresh(background=True)
 
     def reflow(self, event):
         width = max(200, event.width - 48)
@@ -281,12 +295,29 @@ class ServerManager:
         self.notice.set(text)
         messagebox.showerror("작업을 완료하지 못했습니다", text, parent=self.root)
 
-    def submit(self, label, task, success=lambda _: None, failure=None):
+    def submit(self, label, task, success=lambda _: None, failure=None, *, background=False):
         job_id = object()
-        self.jobs[job_id] = (label, time.monotonic())
-        self.progress.start(12)
         future = self.executor.submit(task)
+        self.jobs[job_id] = ManagerJob(label, time.monotonic(), background)
+        self.update_progress()
         future.add_done_callback(lambda result: self.events.put((job_id, result, success, failure or self.show_error)))
+
+    def update_progress(self):
+        active = [job for job in self.jobs.values() if not job.background]
+        if active:
+            if not self._progress_running:
+                self.progress.configure(value=0)
+                self.progress.grid(row=0, column=0, sticky="ew")
+                self.progress.start(50)
+                self._progress_running = True
+            job = active[0]
+            extra = f" · 총 {len(active)}개 작업 진행 중" if len(active) > 1 else ""
+            self.notice.set(f"{job.label}… {int(time.monotonic() - job.since)}초 경과{extra} · 다른 과정을 선택할 수 있습니다.")
+        elif self._progress_running:
+            self.progress.stop()
+            self.progress.configure(value=0)
+            self.progress.grid_remove()
+            self._progress_running = False
 
     def poll(self):
         while True:
@@ -294,24 +325,26 @@ class ServerManager:
                 job_id, future, success, failure = self.events.get_nowait()
             except queue.Empty:
                 break
-            self.jobs.pop(job_id, None)
+            job = self.jobs.pop(job_id)
+            # Stop before callbacks open a dialog; a finished job must not keep animating.
+            self.update_progress()
             try:
                 result = future.result()
             except Exception as error:
+                if not job.background:
+                    self.notice.set(f"{job.label}: 작업을 완료하지 못했습니다.")
                 failure(error)
             else:
+                if not job.background:
+                    self.notice.set(f"{job.label}: 완료했습니다.")
                 try:
                     success(result)
                 except Exception as error:
                     self.show_error(error)
-        if self.jobs:
-            label, since = next(iter(self.jobs.values()))
-            self.notice.set(f"{label}… {int(time.monotonic() - since)}초 경과 · 다른 과정을 선택할 수 있습니다.")
-        else:
-            self.progress.stop()
+        self.update_progress()
         self.root.after(100, self.poll)
 
-    def refresh(self):
+    def refresh(self, *, background=False):
         if self.refreshing:
             return
         self.refreshing = True
@@ -322,7 +355,7 @@ class ServerManager:
             self.refreshing = False
             self.refresh_failed = True
             self.show_error(error)
-        self.submit("상태 확인", read, self.render, failed)
+        self.submit("상태 확인", read, self.render, failed, background=background)
 
     def render(self, result):
         courses, self.states = result
@@ -351,7 +384,7 @@ class ServerManager:
 
     def auto_refresh(self):
         if not self.refresh_failed:
-            self.refresh()
+            self.refresh(background=True)
         self.root.after(5000, self.auto_refresh)
 
     def selected(self):
@@ -393,7 +426,7 @@ class ServerManager:
                 self.show_error(error)
             else:
                 self.notice.set(f"{config.course_name}: " + ("서버가 준비됐습니다. 관리자 화면을 열거나 주소를 복사하세요." if action == "start" else "서버를 중지했습니다. 설정과 저장 폴더 전체를 백업할 수 있습니다."))
-            self.refresh()
+            self.refresh(background=True)
         self.submit(f"{config.course_name} {'시작' if action == 'start' else '중지'}", lambda: start(course.path) if action == "start" else stop(config), done, lambda error: done(error=error))
 
     def settings(self):
@@ -407,7 +440,7 @@ class ServerManager:
             def imported(_):
                 self.selected_path = Path(value).resolve()
                 self.notice.set("기존 과정을 연결했습니다. 계정과 제출 파일은 기존 저장 폴더를 사용합니다.")
-                self.refresh()
+                self.refresh(background=True)
             self.submit("기존 과정 연결", lambda: self.catalog.add(Path(value)), imported)
 
     def copy_url(self):
@@ -456,7 +489,7 @@ class ServerManager:
         self.text_window("서버 사용 방법", "처음 사용하는 경우\n1. 새 과정 만들기에서 과정명과 관리자 비밀번호를 입력합니다.\n2. 수강생에게 안내할 IP를 확인하고 과정을 만듭니다.\n3. 서버 시작 → 관리자 화면 열기 → 사용자 명단을 등록합니다.\n4. 주소 복사로 수강생에게 접속 주소를 안내합니다.\n\n다음 수업부터\n목록에서 과정을 선택하고 서버 시작을 누릅니다.\n\n다른 PC에서 접속이 안 될 때\n서버가 실행 중인지, 안내 IP가 현재 PC의 주소인지 확인하고 접속·오류 점검을 실행하세요. 교육장 네트워크와 방화벽의 해당 포트 접근도 확인해야 합니다.\n\n수업이 끝난 뒤\n해당 과정을 선택하고 서버 중지를 누릅니다. 관리창을 닫는 것만으로 서버가 꺼지지는 않습니다.\n\n백업\n서버 중지 후 설정 JSON과 저장 폴더 전체를 같은 시점으로 복사합니다. 복원 절차는 docs/admin-guide.md를 참고하세요.")
 
     def close(self):
-        if self.busy_paths or any(label != "상태 확인" for label, _ in self.jobs.values()):
+        if self.busy_paths or any(not job.background for job in self.jobs.values()):
             messagebox.showinfo("작업 진행 중", "시작·중지·저장 작업이 끝난 뒤 관리창을 닫아 주세요.", parent=self.root)
             return
         if any(state.get("running") for state in self.states.values()):

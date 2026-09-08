@@ -66,10 +66,14 @@ def test_real_manager_create_start_browser_settings_and_stop(tmp_path, monkeypat
         assert root.clipboard_get() == config.public_url
         manager.buttons["start"].invoke()
         assert manager.buttons["start"].instate(["disabled"])
+        assert manager.progress.winfo_manager() == "grid"
+        assert "시작…" in manager.notice.get()
         ticks = pump(root, lambda: not manager.busy_paths and not manager.jobs, timeout=660)
         assert ticks >= 2, "Tk must keep servicing events while server starts"
         assert not errors, errors
         assert status(config)["running"]
+        assert not manager.progress.winfo_manager() and manager.progress["value"] == 0
+        assert "서버가 준비됐습니다" in manager.notice.get()
         assert manager.buttons["settings"].instate(["disabled"])
         with httpx.Client(trust_env=False, timeout=10) as client:
             assert client.get(config.public_url + "/api/health").json()["instance_id"] == config.instance_id
@@ -105,8 +109,11 @@ def test_real_manager_create_start_browser_settings_and_stop(tmp_path, monkeypat
         assert manager.selected().config.instance_id == config.instance_id
         assert manager.buttons["stop"].instate(["!disabled"])
         manager.buttons["stop"].invoke()
+        assert manager.progress.winfo_manager() == "grid"
         pump(root, lambda: not manager.busy_paths and not manager.jobs, timeout=70)
         assert not status(config)["running"] and not errors
+        assert not manager.progress.winfo_manager() and manager.progress["value"] == 0
+        assert "서버를 중지했습니다" in manager.notice.get()
         manager.buttons["settings"].invoke()
         edit = next(child for child in root.winfo_children() if isinstance(child, CourseDialog))
         edit.variables["course_name"].set("사용성 검증 다음 수업")
@@ -118,6 +125,7 @@ def test_real_manager_create_start_browser_settings_and_stop(tmp_path, monkeypat
         assert changed.root == config.root and changed.instance_id == config.instance_id
         report.update(real_tk_widgets=True,create_validation=True,clipboard_copy=True,real_start_stop=True,
                       event_loop_ticks_during_start=ticks,settings_after_stop=True,
+                      progress_tracks_start_and_stop=True,completion_notice_preserved=True,
                       close_and_reopen_keeps_server=True,os_mouse_input_verified=False)
         (evidence / "result.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     finally:
