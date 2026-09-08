@@ -21,6 +21,19 @@ async function api(path,options={}) {
   if(!response.ok){const e=new Error(typeof result.detail==='string'?result.detail:JSON.stringify(result.detail));e.status=response.status;throw e;}
   return result;
 }
+async function loadData(path) {
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),15000);
+  const timeoutMessage='화면 정보를 불러오는 시간이 초과되었습니다. 서버 상태를 확인한 뒤 다시 로그인하세요.';
+  try{
+    const result=await api(path,{signal:controller.signal});
+    if(controller.signal.aborted)throw new Error(timeoutMessage);
+    return result;
+  }catch(error){
+    if(controller.signal.aborted)throw new Error(timeoutMessage);
+    throw error;
+  }finally{clearTimeout(timer);}
+}
 function controls(running) {
   const busy=running||state.cancelling;
   state.running=running;$('files').disabled=busy;$('assignment').disabled=busy||!!state.resume;
@@ -35,10 +48,11 @@ async function authenticate(result) {
   hidden('auth');hidden('password-panel',!result.must_change_password);hidden('workspace');
   if(result.must_change_password){notice('최초 로그인 또는 초기화 상태입니다. 관리 화면에서 비밀번호 변경을 먼저 완료하세요.');state.token=null;return;}
   notice('과제와 저장 용량을 확인하고 있습니다.');$('identity').textContent=state.user.name+' · '+state.user.user_id;
-  await refresh();hidden('workspace',false);notice('');
+  try{await refresh();hidden('workspace',false);notice('');}
+  catch(error){state.token=null;state.user=null;hidden('workspace');hidden('auth',false);throw error;}
 }
 async function refresh() {
-  const [assignments,quota,unfinished,history]=await Promise.all([api('/assignments'),api('/quota'),api('/uploads'),api('/submissions?all_versions=true')]);
+  const [assignments,quota,unfinished,history]=await Promise.all([loadData('/assignments'),loadData('/quota'),loadData('/uploads'),loadData('/submissions?all_versions=true')]);
   state.assignments=assignments;state.quota=quota;
   const previous=$('assignment').value||state.initialAssignment;state.initialAssignment=null;$('assignment').replaceChildren();
   for(const a of assignments){const option=element('option',a.title+(a.is_open?'':' · 접수 종료'));option.value=a.id;option.disabled=!a.is_open;$('assignment').append(option);}
@@ -200,12 +214,19 @@ $('cancel').onclick=async()=>{
   }catch(error){notice(error.message,true);}finally{state.cancelling=false;$('cancel').disabled=false;controls(state.running);}
 };
 async function initialize() {
-  const bootstrap=$('session-data');let session=null;
-  if(bootstrap){session=JSON.parse(bootstrap.textContent);bootstrap.remove();hidden('auth');}
   try{
-    const info=await api('/info');state.info=info;$('course').textContent=info.course_name||'과제 제출';document.title=(info.course_name||'AssignmentHub')+' · 과제 제출';
+    const bootstrap=$('session-data');let session=null;
+    if(bootstrap){
+      try{session=JSON.parse(bootstrap.textContent);}
+      catch{throw new Error('제출 화면의 로그인 정보를 읽지 못했습니다. 수업 화면에서 다시 열어 주세요.');}
+      finally{bootstrap.remove();}
+      hidden('auth');
+    }
+    const info=await loadData('/info');state.info=info;$('course').textContent=info.course_name||'과제 제출';document.title=(info.course_name||'AssignmentHub')+' · 과제 제출';
     if(session){state.initialAssignment=session.assignment_id;await authenticate(session);}
+    else{hidden('auth',false);}
   }catch(error){state.token=null;hidden('workspace');hidden('auth',false);notice(error.message,true);}
+  finally{hidden('loading-panel');}
 }
 initialize();
 window.addEventListener('beforeunload',event=>{if(state.running){event.preventDefault();event.returnValue='';}});

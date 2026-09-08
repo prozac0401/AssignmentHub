@@ -73,6 +73,17 @@ class AssignmentPatch(Model):
     is_open: StrictBool | None = None
 
 
+class BrowserAssets(StaticFiles):
+    def file_response(self, full_path, stat_result, scope, status_code=200):
+        response = super().file_response(full_path, stat_result, scope, status_code)
+        # FileResponse otherwise uses the host's MIME registry. On some Windows
+        # PCs .js is text/plain, which browsers correctly reject with nosniff.
+        media_type = {".js": "text/javascript", ".css": "text/css"}.get(Path(full_path).suffix.lower())
+        if media_type:
+            response.headers["content-type"] = media_type + "; charset=utf-8"
+        return response
+
+
 class RequestPolicy:
     """Pure ASGI guards: do not buffer request bodies, never disable XSRF/CORS."""
     def __init__(self, app, config):
@@ -449,7 +460,7 @@ def create_app(config: Config):
 
     static = Path(__file__).parent / "static"
     static.mkdir(exist_ok=True)
-    app.mount("/upload-static", StaticFiles(directory=static), name="uploader-assets")
+    app.mount("/upload-static", BrowserAssets(directory=static), name="uploader-assets")
 
     @app.get("/upload")
     def upload_page():

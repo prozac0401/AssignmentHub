@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import csv
 import io
+import mimetypes
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -339,6 +340,23 @@ def test_existing_login_opens_upload_and_download_ticket_stays_one_time(hub):
     assert client.post("/api/downloads", data={"ticket": ticket}).status_code in (400, 401, 403, 404)
     assert client.post("/api/auth/logout", headers=auth(session)).status_code == 200
     assert client.get("/api/quota", headers=auth(session)).status_code in (401, 403)
+
+
+@pytest.mark.parametrize("asset,expected", [
+    ("upload.js", "text/javascript"), ("sha256.js", "text/javascript"),
+    ("hash-worker.js", "text/javascript"), ("upload.css", "text/css"), ("console.css", "text/css"),
+])
+def test_uploader_assets_ignore_incorrect_os_mime_types(hub, monkeypatch, asset, expected):
+    client, _, _ = hub
+    # Windows file associations may label scripts as plain text. nosniff then
+    # correctly blocks execution, leaving an authenticated page with no controls.
+    mimetypes.init()
+    monkeypatch.setitem(mimetypes.types_map, ".js", "text/plain")
+    monkeypatch.setitem(mimetypes.types_map, ".css", "application/octet-stream")
+    response = client.get("/upload-static/" + asset)
+    assert response.status_code == 200
+    assert response.headers["content-type"].split(";")[0] == expected
+    assert response.headers["x-content-type-options"] == "nosniff"
 
 
 def test_successful_login_does_not_consume_peer_failure_budget(hub):

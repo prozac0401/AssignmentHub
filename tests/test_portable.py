@@ -120,6 +120,11 @@ def test_relocated_server_lifecycle(distribution, restricted_env, tmp_path):
             assert client.get(url + "/api/health").status_code == 200
             assert client.get(url, follow_redirects=True).status_code == 200
             assert client.get(url + "/upload").status_code == 200
+            for asset, media_type in (("upload.js", "text/javascript"), ("sha256.js", "text/javascript"),
+                                      ("hash-worker.js", "text/javascript"), ("upload.css", "text/css")):
+                resource = client.get(url + "/upload-static/" + asset)
+                assert resource.status_code == 200
+                assert resource.headers["content-type"].split(";")[0] == media_type
             admin = login(client, "admin", "Port1234")
             roster = client.post("/api/admin/roster/preview", headers=auth(admin),
                                  content=(distribution / "templates" / "users_template.tsv").read_bytes())
@@ -128,6 +133,7 @@ def test_relocated_server_lifecycle(distribution, restricted_env, tmp_path):
             session = student(client, admin)
             opened = client.post("/upload", data={"token": session["token"]})
             assert opened.status_code == 200 and 'id="session-data"' in opened.text
+            assert 'id="loading-panel"' in opened.text
             common = client.post("/api/admin/roster/apply", headers=auth(admin), json={
                 "rows": [{"user_id": "002", "name": "공통 비밀번호 학생"}], "common_temporary_password": "Class123"})
             assert common.status_code == 200 and common.json()["created"][0]["temporary_password"] == "Class123"

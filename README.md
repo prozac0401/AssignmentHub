@@ -10,7 +10,7 @@
 
 v1.3.0의 **8자 비밀번호·차수 공통 임시비밀번호·코드 없는 제출**에 맞춰 갱신했습니다. 운영자용·수강생용 퀵가이드는 각각 한 쪽입니다. 상세 매뉴얼은 수업 준비, 첫 명단 등록, 추가 등록·그룹 변경, 비밀번호 초기화, 과제 접수, 여러 파일 제출, 이어 올리기, 수정본 재제출, 미제출자 확인, 두 과정 운영, 종료·백업·복원을 12개 시나리오로 설명합니다. [명단 예시 TSV 3종](docs/manual/README.md#tsv-예시-파일)과 인터넷 없이 열 수 있는 웹 매뉴얼을 함께 제공합니다.
 
-현재 [v1.3.1 릴리즈](https://github.com/prozac0401/AssignmentHub/releases/tag/v1.3.1)의 프로그램과 매뉴얼·퀵가이드 첨부 파일을 사용하세요. v1.3.0 개정 매뉴얼은 v1.3.1에도 적용됩니다. v1.3.1에서는 서버 관리창의 진행 표시를 수정했습니다. 상세 기능 검증 범위는 [검증 보고서](docs/test-report.md), [진행 표시 검증](docs/v1.3.1-test-report.md), [Python 내장 배포 검증 결과](docs/portable-test-report.md)를 참고하세요.
+현재 [v1.3.2 릴리즈](https://github.com/prozac0401/AssignmentHub/releases/tag/v1.3.2)의 프로그램과 매뉴얼·퀵가이드 첨부 파일을 사용하세요. v1.3.0 개정 매뉴얼은 v1.3.2에도 적용됩니다. v1.3.2에서는 Windows 파일 형식 설정에 따라 파일 제출 화면이 비어 보이는 문제를 수정하고 로딩 실패 안내를 추가했습니다. 상세 기능 검증 범위는 [검증 보고서](docs/test-report.md), [파일 제출 화면 검증](docs/v1.3.2-test-report.md), [진행 표시 검증](docs/v1.3.1-test-report.md), [Python 내장 배포 검증 결과](docs/portable-test-report.md)를 참고하세요.
 
 서버 관리창과 수업·제출 화면에 공통 디자인을 적용했습니다. 창 크기에 따라 메뉴·입력란·버튼을 재배치하며 파일 드래그 앤 드롭을 지원합니다. [디자인 참고와 화면 크기 대응](docs/ui-design.md)
 
@@ -18,7 +18,7 @@ v1.3.0의 **8자 비밀번호·차수 공통 임시비밀번호·코드 없는 �
 
 ## 더블클릭으로 시작 — 서버 운영자
 
-1. [**`AssignmentHub-1.3.1-windows-x64.zip`**](https://github.com/prozac0401/AssignmentHub/releases/download/v1.3.1/AssignmentHub-1.3.1-windows-x64.zip) 전체를 쓰기 가능한 폴더에 압축 해제합니다. Windows 10/11 x64용이며 Python·Tcl/Tk·라이브러리·Caddy가 모두 포함되어 있습니다.
+1. [**`AssignmentHub-1.3.2-windows-x64.zip`**](https://github.com/prozac0401/AssignmentHub/releases/download/v1.3.2/AssignmentHub-1.3.2-windows-x64.zip) 전체를 쓰기 가능한 폴더에 압축 해제합니다. Windows 10/11 x64용이며 Python·Tcl/Tk·라이브러리·Caddy가 모두 포함되어 있습니다.
 2. 압축 해제한 폴더의 **`start.bat`를 더블클릭**합니다. 별도 설치, 관리자 권한, 인터넷 다운로드 없이 한국어 서버 관리창을 엽니다. ZIP 안에서 직접 실행하지 마세요.
 3. **새 과정 만들기**에서 과정명·수강생 접속 IP·관리자 비밀번호를 입력합니다. 과정 ID와 비어 있는 포트는 제안되며, 저장 폴더를 선택할 수 있습니다. 용량은 GiB 단위로 입력합니다.
 4. 과정 선택 → **서버 시작** → **관리자 화면 열기** 순서로 진행합니다. 웹 관리자 화면의 **운영 안내**에서 명단 등록·과제 설정·접속 주소 안내를 진행합니다.
