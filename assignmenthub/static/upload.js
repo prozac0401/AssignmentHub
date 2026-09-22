@@ -38,8 +38,9 @@ function controls(running) {
   const busy=running||state.cancelling;
   state.running=running;$('files').disabled=busy;$('assignment').disabled=busy||!!state.resume;
   $('start').disabled=busy||!state.selected.length;$('fresh').disabled=busy;$('refresh').disabled=busy;
-  $('logout').disabled=busy;hidden('pause',!running||state.cancelling);hidden('cancel',!state.upload||state.upload.status==='completed');
+  $('logout').disabled=busy;hidden('pause',!running||state.cancelling);hidden('cancel',!state.upload||['completed','failed','cancelled','expired'].includes(state.upload.status));
   for(const b of document.querySelectorAll('#unfinished button'))b.disabled=busy;
+  if(!busy)selection();
 }
 function checkStop(){if(state.stopped)throw new Error('일시 중지했습니다. 파일과 작업을 보관하고 있습니다. 다시 시도로 이어 올릴 수 있습니다.');}
 function stop(){state.stopped=true;if(state.xhr)state.xhr.abort();if(state.worker){state.worker.terminate();state.worker=null;if(state.workerReject)state.workerReject(new Error('해시 확인을 중지했습니다. 다시 시도할 수 있습니다.'));state.workerReject=null;}}
@@ -70,18 +71,52 @@ async function refresh() {
 function renderUnfinished(items) {
   $('unfinished').replaceChildren();if(!items.length)$('unfinished').append(element('p','이어 올릴 작업이 없습니다.','muted'));
   for(const u of items){const box=element('div',undefined,'unfinished-item');box.append(element('strong',u.assignment_title||u.assignment_id),element('div',(labels[u.status]||u.status)+' · '+bytes(u.total_bytes)));
+    if(u.error)box.append(element('p',u.error,'small'));
     if(!['cancelled','expired','failed'].includes(u.status)){
       const button=element('button','이 작업 이어 올리기','secondary');button.disabled=state.running;button.onclick=()=>{state.resume=u;state.upload=u;state.manifest=null;state.requestId=null;state.selected=[];$('files').value='';$('assignment').value=u.assignment_id;$('assignment').disabled=true;hidden('resume-indicator',false);$('resume-indicator').textContent='이어 올릴 파일 '+u.files.length+'개를 모두 다시 선택하세요: '+u.files.map(f=>f.name).join(', ');hidden('fresh',false);hidden('receipt');selection();renderProgress();};box.append(button);
     }else{box.append(element('div','재개할 수 없습니다. 새 제출을 시작하세요.','muted'));}
     $('unfinished').append(box);}
 }
+function categoryOf(name) {
+  const basename=name.replace(/\\/g,'/').split('/').pop().replace(/[ .]+$/g,'').toLowerCase();
+  const suffix=basename.includes('.')?'.'+basename.split('.').pop():'';
+  return (state.info.file_categories||[]).find(c=>c.extensions.includes(suffix))?.id||'other';
+}
+function currentAssignment(){return state.assignments.find(a=>a.id===$('assignment').value);}
+function renderPolicy() {
+  const a=currentAssignment(),categories=state.info.file_categories||[];
+  const allowed=categories.filter(c=>a?.allowed_file_categories?.includes(c.id));
+  $('file-policy').replaceChildren(element('strong','허용 파일: '+(allowed.map(c=>c.label).join(', ')||'허용된 파일 분류 없음')));
+  if(allowed.length){const details=element('details');details.append(element('summary','허용 확장자 보기'));
+    for(const c of allowed)details.append(element('p',c.label+': '+(c.extensions.join(', ')||'위 분류에 속하지 않는 확장자 및 확장자 없는 파일'),'small'));
+    $('file-policy').append(details);}
+  if(a?.allowed_file_categories?.includes('video'))$('file-policy').append(element('p','영상은 전송 후 제출 확정 전에 첫 5초의 화면·음성을 검사합니다. 5초보다 짧으면 전체 구간을 검사합니다. '+(a.video_audio_required?'시작 부분에 소리가 있어야 제출할 수 있습니다.':'무음 영상도 허용합니다.'),'small'));
+  if(a?.allowed_file_categories?.includes('archives'))$('file-policy').append(element('p','압축파일 내부의 개별 파일은 검사하지 않습니다.','small'));
+  const extensions=allowed.flatMap(c=>c.extensions);
+  // "Other" cannot be expressed using accept. The explicit check below and
+  // the server still enforce every disabled category, including drag and drop.
+  if(allowed.some(c=>c.id==='other')||!extensions.length)$('files').removeAttribute('accept');
+  else $('files').accept=extensions.join(',');
+}
+function selectionIssue() {
+  const q=state.quota,a=currentAssignment(),total=state.selected.reduce((n,f)=>n+f.size,0);
+  if(q){if(state.selected.length>q.max_files)return '한 번에 최대 '+q.max_files+'개까지 선택할 수 있습니다.';
+    if(state.selected.some(f=>f.size>q.max_file_bytes))return '파일당 최대 '+exact(q.max_file_bytes)+'를 초과한 파일이 있습니다.';
+    if(!state.resume&&!state.upload&&q.used_bytes+q.reserved_bytes+total>q.quota_bytes)return '완료 사용량과 예약량, 이번 선택을 합하면 누적 한도를 초과합니다. 파일 선택을 줄이거나 관리자에게 문의하세요.';}
+  if(Array.isArray(a?.allowed_file_categories)){
+    if(!a.allowed_file_categories.length)return '이 과제는 현재 파일 제출을 허용하지 않습니다.';
+    const invalid=state.selected.filter(f=>!a.allowed_file_categories.includes(categoryOf(f.name)));
+    if(invalid.length)return '허용되지 않은 파일: '+invalid.map(f=>f.name).join(', ')+'. 이 과제의 허용 파일 분류를 확인하세요.';
+  }
+  return '';
+}
 function selection() {
+  renderPolicy();
   $('selection').replaceChildren();for(const f of state.selected){const row=element('div',undefined,'file-row');const head=element('div',undefined,'file-head');head.append(element('span',f.name),element('small',exact(f.size)));row.append(head);$('selection').append(row);}
   const total=state.selected.reduce((n,f)=>n+f.size,0);$('selection-total').textContent=state.selected.length+'개 파일 · 합계 '+exact(total);
-  let issue='';const q=state.quota;
-  if(q){if(state.selected.length>q.max_files)issue='한 번에 최대 '+q.max_files+'개까지 선택할 수 있습니다.';else if(state.selected.some(f=>f.size>q.max_file_bytes))issue='파일당 최대 '+exact(q.max_file_bytes)+'를 초과한 파일이 있습니다.';else if(!state.resume&&q.used_bytes+q.reserved_bytes+total>q.quota_bytes)issue='완료 사용량과 예약량, 이번 선택을 합하면 누적 한도를 초과합니다. 파일 선택을 줄이거나 관리자에게 문의하세요.';}
-  if(issue)notice(issue,true);
-  $('start').disabled=state.running||!state.selected.length||!!issue||(!state.resume&&!state.assignments.some(a=>a.id===$('assignment').value&&a.is_open));
+  const issue=selectionIssue(),q=state.quota;
+  $('selection-error').textContent=issue;hidden('selection-error',!issue);
+  $('start').disabled=state.running||state.cancelling||['completed','failed','cancelled','expired'].includes(state.upload?.status)||!state.selected.length||!!issue||(!state.resume&&!state.assignments.some(a=>a.id===$('assignment').value&&a.is_open));
   $('start').textContent=state.upload?.status==='completed'?'제출 완료':(state.resume?'확인 후 이어 올리기':'제출 시작');
   if(q)$('quota-detail').textContent='진행 중 예약 '+bytes(q.reserved_bytes)+' · 이번 선택 '+bytes(total);
 }
@@ -128,10 +163,12 @@ async function bounded(task,description) {
   }
 }
 async function run() {
-  if(state.running)return;state.stopped=false;controls(true);hidden('retry');hidden('receipt');hidden('progress-panel',false);notice('');
+  if(state.running||!state.selected.length)return;
+  const issue=selectionIssue();if(issue){selection();return;}
+  state.stopped=false;controls(true);hidden('retry');hidden('receipt');hidden('progress-panel',false);notice('');
   if(!state.upload){$('total-progress').value=0;$('percent').textContent='0%';$('total-progress-label').textContent='전송 시작 전 · 파일 확인 중';$('file-progress-list').replaceChildren();}
   try {
-    $('status').textContent='파일 무결성 확인 중';$('progress-help').textContent='파일을 작은 조각으로 읽어 전체 SHA-256을 계산합니다. 이 단계에는 파일이 전송되지 않습니다.';
+    $('status').textContent='파일 무결성 확인 중';$('progress-help').textContent='선택한 파일의 내용을 확인하고 있습니다. 이 단계에서는 파일이 전송되지 않습니다.';
     if(!state.manifest){const manifest=[];for(let i=0;i<state.selected.length;i++){const f=state.selected[i];manifest.push({name:f.name,size:f.size,sha256:await hashFile(f,i,state.selected.length)});}state.manifest=manifest;}
     checkStop();
     if(state.resume){state.upload=await bounded(()=>api('/uploads/'+state.resume.id),'이어 올릴 작업 확인');
@@ -158,25 +195,33 @@ async function run() {
       }
       fileIndex++;
     }
-    checkStop();$('status').textContent='검증 중';$('progress-help').textContent='모든 파일의 실제 크기와 SHA-256을 서버에서 확인하고 있습니다.';renderProgress();
+    checkStop();$('status').textContent='검증 중';$('progress-help').textContent='서버에서 수신한 파일의 크기와 내용이 원본과 일치하는지 확인하고 있습니다. 영상은 첫 5초의 화면·음성 검사까지 통과해야 등록됩니다.';renderProgress();
     if(state.upload.status!=='finalizing')state.upload=await bounded(()=>api('/uploads/'+state.upload.id+'/verify',{method:'POST'}),'파일 검증');
     checkStop();$('status').textContent='저장 중';$('progress-help').textContent='파일 저장과 제출 기록 확정이 진행 중입니다. 아직 제출 완료가 아닙니다.';
     state.upload=await bounded(()=>api('/uploads/'+state.upload.id+'/complete',{method:'POST'}),'제출 확정');
     if(state.upload.status!=='completed')throw new Error('서버의 완료 확정을 받지 못했습니다. 상태를 확인하고 다시 시도하세요.');
     receipt(state.upload);await refresh();
   } catch(error) {
+    if(state.upload&&[415,422].includes(error.status)){
+      try{state.upload=await api('/uploads/'+state.upload.id);}catch{}
+    }
     $('status').textContent=state.stopped?'일시 중지':(!error.status?'연결 끊김 / 작업 중단':'업로드 중단');
-    const canRetry=state.stopped||retryable(error)||error.status===507;
+    const canRetry=!['failed','cancelled','expired'].includes(state.upload?.status)&&(state.stopped||retryable(error)||error.status===507);
     $('progress-help').textContent=error.message+(canRetry?' · 다시 시도할 수 있습니다.':' · 입력 또는 계정 상태를 수정한 뒤 다시 시작하세요.');
     notice(error.message,true);hidden('retry',!canRetry);hidden('fresh',!state.upload);
     if(error.status===401){state.token=null;hidden('auth',false);$('progress-help').textContent+=' 다시 로그인한 뒤 같은 파일로 이어 올리세요.';}
   } finally {controls(false);if(state.upload?.status==='completed'){$('start').disabled=true;hidden('retry');hidden('cancel');}}
 }
+function appendVideoResult(parent,file) {
+  const report=file.video_validation;if(report?.status!=='passed')return;
+  parent.append(element('p','첫 '+report.sample_seconds+'초 검증 완료 · 화면 데이터 읽기 확인 · '+(report.audio_detected?'소리 확인':'무음 허용'),'small'));
+  for(const warning of report.warnings||[])parent.append(element('p',warning,'small'));
+}
 function receipt(u) {
   state.resume=null;hidden('resume-indicator');hidden('fresh');$('start').textContent='제출 완료';
   $('status').textContent='제출 완료';$('progress-help').textContent='모든 파일과 제출 기록의 저장이 완료되었습니다.';renderProgress();
   $('receipt').replaceChildren(element('h2','제출이 완료되었습니다.'),element('p','제출번호 '+u.submission_number+' · 버전 '+u.version),element('p',(u.assignment_title||u.assignment_id)+' · '+(state.user?.user_id||u.user_id)),element('p',date(u.completed_at)));
-  for(const f of u.files)$('receipt').append(element('div',f.name+' · '+exact(f.size),'file-row'));
+  for(const f of u.files){const row=element('div',f.name+' · '+exact(f.size),'file-row');appendVideoResult(row,f);$('receipt').append(row);}
   const next=element('button','다른 파일 새로 제출','secondary');next.onclick=fresh;$('receipt').append(next);hidden('receipt',false);
 }
 function fresh(){state.upload=null;state.resume=null;state.requestId=null;state.manifest=null;state.selected=[];$('files').value='';$('assignment').disabled=false;hidden('fresh');hidden('resume-indicator');hidden('progress-panel');hidden('receipt');notice('');selection();}
@@ -190,7 +235,7 @@ async function download(file) {
 function renderHistory(items) {
   $('history-list').replaceChildren();if(!items.length)$('history-list').append(element('p','아직 완료된 제출이 없습니다.','muted'));
   for(const u of items){const entry=element('article',undefined,'history-entry');entry.append(element('h3',(u.assignment_title||u.assignment_id)+' · 제출번호 '+u.submission_number),element('p','버전 '+u.version+' · '+date(u.completed_at)+' · 합계 '+bytes(u.total_bytes),'meta'));
-    for(const f of u.files){const row=element('div',undefined,'history-file');row.append(element('span',f.name+' · '+bytes(f.size)));const button=element('button','다운로드','secondary');button.onclick=()=>download(f);row.append(button);entry.append(row);}$('history-list').append(entry);}
+    for(const f of u.files){const row=element('div',undefined,'history-file');const summary=element('div');summary.append(element('span',f.name+' · '+bytes(f.size)));appendVideoResult(summary,f);row.append(summary);const button=element('button','다운로드','secondary');button.onclick=()=>download(f);row.append(button);entry.append(row);}$('history-list').append(entry);}
 }
 $('login-form').onsubmit=async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;try{await authenticate(await api('/auth/login',{method:'POST',json:{user_id:$('user-id').value,password:$('password').value}}));}catch(error){notice(error.message,true);}finally{button.disabled=false;}};
 $('logout').onclick=async()=>{try{await api('/auth/logout',{method:'POST'});}catch(error){notice(error.message,true);return;}state.token=null;state.user=null;fresh();hidden('workspace');hidden('auth',false);notice('로그아웃했습니다.');};

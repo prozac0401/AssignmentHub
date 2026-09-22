@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import csv
 import io
+import json
 import mimetypes
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from assignmenthub.api import create_app
 from assignmenthub.config import Config
+from assignmenthub.file_policy import ALL_CATEGORIES
 from assignmenthub.service import Service
 
 ADMIN_PASSWORD = "Admin-test-password!"
@@ -28,6 +30,10 @@ def hub(tmp_path):
                     chunk_bytes=8)
     service = Service(config)
     service.bootstrap_admin("admin", ADMIN_PASSWORD)
+    # Transport/recovery fixtures intentionally exercise arbitrary filenames.
+    # New-instance policy is tested separately without this explicit opt-in.
+    with service.store.connect(write=True) as db:
+        db.execute("UPDATE assignments SET allowed_file_categories=?", (json.dumps(ALL_CATEGORIES),))
     with TestClient(create_app(config)) as client:
         admin = login(client, "admin", ADMIN_PASSWORD)
         yield client, config, admin
@@ -321,7 +327,10 @@ def test_s01_untrusted_names_never_control_storage_path(hub, name):
         for file in submission["files"]:
             storage_path = Path(file["storage_path"]).resolve()
             assert storage_path.is_relative_to(config.root.resolve())
-            assert storage_path.name != name
+            if name == "한글 공백.txt":
+                assert storage_path.name == name
+            else:
+                assert storage_path.name != name
 
 
 def test_existing_login_opens_upload_and_download_ticket_stays_one_time(hub):

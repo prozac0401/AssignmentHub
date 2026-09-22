@@ -38,7 +38,7 @@ def test_real_proxy_disconnect_mid_chunk_resumes_at_durable_offset(tmp_path):
         with httpx.Client(base_url=config.public_url, timeout=30, trust_env=False) as client:
             assignment_id = client.get("/api/assignments", headers=headers).json()[0]["id"]
             response = client.post("/api/uploads", headers=headers, json={"assignment_id": assignment_id,
-                                   "request_id": "network_disconnect_01", "files": [{"name": "청크 중단.bin", "size": len(data),
+                                   "request_id": "network_disconnect_01", "files": [{"name": "청크 중단.txt", "size": len(data),
                                    "sha256": hashlib.sha256(data).hexdigest()}]})
             assert response.status_code == 200, response.text
             upload = response.json()
@@ -69,7 +69,9 @@ def test_real_proxy_disconnect_mid_chunk_resumes_at_durable_offset(tmp_path):
 
             for offset in (0, 8):
                 interrupted_chunk(offset)
-                temporary_path = config.root / "tmp" / upload_id / (file_id + ".part")
+                temporary_path = next((config.root / "tmp").glob("*/*.part"))
+                assert "연결 검증" in str(temporary_path)
+                assert temporary_path.name == "청크 중단.txt.part"
                 assert temporary_path.stat().st_size == offset
                 chunk = data[offset:offset+8]
                 response = client.patch(route + f"?offset={offset}", content=chunk,

@@ -24,7 +24,10 @@ from fastapi import HTTPException
 
 from .config import Config
 from .db import Store
+from .file_policy import FilePolicyError, file_category, validate_files
 from .passwords import temporary_password, valid_password_length, valid_temporary_password
+from .storage_paths import assign_storage_names, contained_path, storage_name
+from .video_validation import VALIDATION_VERSION, VideoValidationError, VideoValidatorUnavailable, validate_video
 
 ACTIVE = ("uploading", "paused", "verifying", "finalizing")
 TERMINAL = ("completed", "failed", "cancelled", "expired")
@@ -75,6 +78,12 @@ class Service:
         # Fixed stripes bound memory and serialize each upload across chunks/cleanup/finalization.
         self.locks = [threading.Lock() for _ in range(257)]
         self.slots = threading.BoundedSemaphore(config.concurrent_uploads)
+        self.video_slots = threading.BoundedSemaphore(min(2, config.concurrent_uploads))
+        self.disk_guard = threading.RLock()
+        # At most one entry per active chunk slot. Disk checks credit bytes
+        # materialized by a chunk whose durable offset has not committed yet.
+        self.inflight_bytes = {}
+        self.disk_root = config.root
         self.fault_hook = lambda point: None  # Tests replace this in process; never exposed over HTTP.
 
     def lock(self, key):
@@ -292,12 +301,22 @@ class Service:
 
     def roster_apply(self, token, rows, update_existing=False, common_temporary_password=None):
         admin = self.authenticate(token, admin=True)
+        clean = self.roster_rows(rows, common_temporary_password)
+        prepared = self.prepare_roster(clean, common_temporary_password)
+        with self.store.connect(write=True) as db:
+            self.authenticate(token, admin=True, db=db)
+            return self.commit_roster(db, admin, clean, prepared, update_existing, common_temporary_password is not None)
+
+    def roster_rows(self, rows, common_temporary_password=None):
+        """Normalize the shared legacy and recoverable-job input before doing work."""
         if common_temporary_password is not None and not valid_temporary_password(common_temporary_password):
             fail(422, "공통 임시비밀번호는 영문·숫자 8자리(8바이트)로 입력하세요.")
         if not isinstance(rows, list) or not 1 <= len(rows) <= 10000:
             fail(422, "1~10,000행의 명단이 필요합니다.")
         clean, seen = [], set()
         for row in rows:
+            if not isinstance(row, dict):
+                fail(422, "명단의 각 행은 ID/이름/그룹을 포함한 항목이어야 합니다.")
             uid = self.valid_user_id(row.get("user_id"))
             if uid in seen:
                 fail(409, "명단 내 중복 ID입니다. 명단 전체가 반영되지 않았습니다.")
@@ -306,33 +325,42 @@ class Service:
             if not isinstance(name, str) or not name.strip() or len(name) > 200 or not isinstance(group, str) or len(group) > 200:
                 fail(422, "이름은 필수 텍스트이며 이름/그룹은 200자 이내입니다.")
             clean.append((uid, name.strip(), group.strip()))
+        return clean
+
+    def prepare_roster(self, clean, common_temporary_password=None, progress=None):
         # Argon2 runs outside SQLite write transactions.
         with self.store.connect() as db:
             existing = {r["user_id"]: dict(r) for r in db.execute("SELECT * FROM users")}
         prepared = {}
-        for uid, name, group in clean:
+        for index, (uid, name, group) in enumerate(clean):
+            if progress:
+                progress(index)
             if uid not in existing:
                 password = common_temporary_password if common_temporary_password is not None else temporary_password()
                 prepared[uid] = (password, PASSWORDS.hash(password))
+        if progress:
+            progress(len(clean))
+        return prepared
+
+    def commit_roster(self, db, admin, clean, prepared, update_existing, common_password):
+        """Caller owns the transaction so a job result and accounts commit together."""
         created, updated = [], 0
-        with self.store.connect(write=True) as db:
-            self.authenticate(token, admin=True, db=db)
-            for uid, name, group in clean:
-                old = db.execute("SELECT * FROM users WHERE user_id=?", (uid,)).fetchone()
-                if old:
-                    if old["role"] != "student":
-                        fail(409, "관리자 계정은 명단으로 수정할 수 없습니다.")
-                    if update_existing and (name, group) != (old["name"], old["group_name"]):
-                        db.execute("UPDATE users SET name=?,group_name=? WHERE id=?", (name, group, old["id"]))
-                        updated += 1
-                else:
-                    if uid not in prepared:
-                        fail(409, "명단 상태가 변경되었습니다. 미리보기를 다시 확인하세요.")
-                    password, hashed = prepared[uid]
-                    db.execute("INSERT INTO users(id,user_id,name,group_name,role,password_hash) VALUES (?,?,?,?,'student',?)", (uuid.uuid4().hex, uid, name, group, hashed))
-                    created.append({"user_id": uid, "name": name, "temporary_password": password})
-            mode = "common" if common_temporary_password is not None else "individual"
-            self.audit(db, admin["user_id"], "roster_apply", detail=f"created={len(created)},updated={updated},temporary_password_mode={mode}")
+        for uid, name, group in clean:
+            old = db.execute("SELECT * FROM users WHERE user_id=?", (uid,)).fetchone()
+            if old:
+                if old["role"] != "student":
+                    fail(409, "관리자 계정은 명단으로 수정할 수 없습니다.")
+                if update_existing and (name, group) != (old["name"], old["group_name"]):
+                    db.execute("UPDATE users SET name=?,group_name=? WHERE id=?", (name, group, old["id"]))
+                    updated += 1
+            else:
+                if uid not in prepared:
+                    fail(409, "명단 상태가 변경되었습니다. 미리보기를 다시 확인하세요.")
+                password, hashed = prepared[uid]
+                db.execute("INSERT INTO users(id,user_id,name,group_name,role,password_hash) VALUES (?,?,?,?,'student',?)", (uuid.uuid4().hex, uid, name, group, hashed))
+                created.append({"user_id": uid, "name": name, "temporary_password": password})
+        mode = "common" if common_password else "individual"
+        self.audit(db, admin["user_id"], "roster_apply", detail=f"created={len(created)},updated={updated},temporary_password_mode={mode}")
         return {"created": created, "updated": updated}
 
     def reset_password(self, token, user_pk):
@@ -365,10 +393,56 @@ class Service:
                 "max_file_bytes": self.config.max_file_bytes, "chunk_bytes": self.config.chunk_bytes,
                 "max_files": self.config.max_files, "min_free_bytes": self.config.min_free_bytes}
 
+    def legacy_file_path(self, upload, file, final=False):
+        relative = (Path(upload["assignment_id"]) / upload["user_pk"] / upload["id"] / file["id"]
+                    if final else Path(upload["id"]) / (file["id"] + ".part"))
+        return contained_path(self.config.root, Path("submissions" if final else "tmp") / relative)
+
+    def named_file_path(self, upload, file, final=False):
+        relative = Path(upload["storage_dir"] if final else upload["temp_dir"]) / (file["storage_name"] + ("" if final else ".part"))
+        return contained_path(self.config.root, Path("submissions" if final else "tmp") / relative)
+
     def file_path(self, upload, file, final=False):
-        if final:
-            return self.config.root / "submissions" / upload["assignment_id"] / upload["user_pk"] / upload["id"] / file["id"]
-        return self.config.root / "tmp" / upload["id"] / (file["id"] + ".part")
+        legacy = self.legacy_file_path(upload, file, final)
+        if "storage_dir" not in upload.keys() or not upload["storage_dir"] or not file["storage_name"]:
+            return legacy
+        named = self.named_file_path(upload, file, final)
+        # A committed path plan can precede a move if startup migration is interrupted.
+        return named if named.exists() or not legacy.exists() else legacy
+
+    def migrate_storage(self):
+        # Startup runs before requests, under the exclusive supervisor lock.
+        # Commit each name plan BEFORE moving; retry locates both old and new paths.
+        with self.store.connect() as db:
+            ids = [r[0] for r in db.execute("SELECT id FROM uploads WHERE status IN ('completed','uploading','paused','verifying','finalizing') ORDER BY rowid")]
+        for upload_id in ids:
+            with self.store.connect(write=True) as db:
+                assign_storage_names(db, upload_id)
+                upload = dict(self._upload(db, upload_id))
+                files = [dict(r) for r in db.execute("SELECT * FROM files WHERE upload_id=?", (upload_id,))]
+            for file in files:
+                for final in (False, True):
+                    src = self.legacy_file_path(upload, file, final)
+                    if not src.exists():
+                        continue
+                    dst = self.named_file_path(upload, file, final)
+                    if dst.exists():
+                        # Never overwrite a file at the destination, even after a partial migration.
+                        raise OSError(f"저장 경로 전환 중 파일이 중복되었습니다: {dst}")
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    src.rename(dst)
+                    sync_directory(dst.parent)
+                    sync_directory(src.parent)
+                    self.fault_hook("storage_migration_after_move")
+                    # Remove empty legacy directories only, within this storage subtree.
+                    parent = src.parent
+                    boundary = self.config.root / ("submissions" if final else "tmp")
+                    while parent != boundary:
+                        try:
+                            parent.rmdir()
+                        except OSError:
+                            break
+                        parent = parent.parent
 
     def _upload(self, db, upload_id, user=None):
         row = db.execute("SELECT * FROM uploads WHERE id=?", (upload_id,)).fetchone()
@@ -377,16 +451,18 @@ class Service:
         return row
 
     def upload_result(self, db, row, admin=False):
-        user = db.execute("SELECT user_id FROM users WHERE id=?", (row["user_pk"],)).fetchone()
+        user = db.execute("SELECT user_id,name,group_name FROM users WHERE id=?", (row["user_pk"],)).fetchone()
         assignment = db.execute("SELECT title FROM assignments WHERE id=?", (row["assignment_id"],)).fetchone()
         files = []
         for f in db.execute("SELECT * FROM files WHERE upload_id=? ORDER BY ordinal", (row["id"],)):
             data = {k: f[k] for k in ("id", "name", "size", "offset", "sha256", "stored_sha256")}
+            data["video_validation"] = json.loads(f["video_validation"]) if f["video_validation"] else None
             if admin and row["status"] == "completed":
                 data["storage_path"] = str(self.file_path(row, f, True))
             files.append(data)
         return {"id": row["id"], "assignment_id": row["assignment_id"], "assignment_title": assignment["title"],
-                "user_id": user["user_id"], "status": row["status"], "total_bytes": row["total_bytes"],
+                "user_id": user["user_id"], "name": user["name"], "group": user["group_name"],
+                "status": row["status"], "total_bytes": row["total_bytes"],
                 "submission_number": row["submission_number"], "version": row["version"], "completed_at": now_iso(row["completed_at"]),
                 "updated_at": now_iso(row["updated_at"]), "error": row["error"], "files": files}
 
@@ -396,22 +472,22 @@ class Service:
             return self.upload_result(db, self._upload(db, upload_id, user), user["role"] == "admin")
 
     def check_disk(self, db, extra=0):
-        # disk_usage already accounts for materialized bytes. Subtract only unreceived reservations.
-        rows = db.execute("SELECT f.id,f.size,f.upload_id,u.assignment_id,u.user_pk FROM files f JOIN uploads u ON f.upload_id=u.id WHERE u.status IN ('uploading','paused','verifying','finalizing')").fetchall()
-        remaining = 0
-        for row in rows:
-            materialized = 0
-            temporary = self.config.root / "tmp" / row["upload_id"] / (row["id"] + ".part")
-            final = self.config.root / "submissions" / row["assignment_id"] / row["user_pk"] / row["upload_id"] / row["id"]
-            for path in (temporary, final):
-                try:
-                    materialized += path.stat().st_size
-                except FileNotFoundError:
-                    pass
-            remaining += max(0, row["size"] - materialized)
-        free = shutil.disk_usage(self.config.root).free
-        if free - remaining - extra < self.config.min_free_bytes:
-            fail(507, "디스크 여유 공간이 부족합니다. 관리자가 공간을 확보한 뒤 재시도하세요.")
+        # One snapshot reads both the aggregate and offsets: a concurrent chunk
+        # commit must never be credited a second time. No pending path is stat'ed.
+        with self.disk_guard:
+            ids = tuple(self.inflight_bytes)
+            placeholders = ",".join("?" for _ in ids) or "NULL"
+            rows = db.execute(f"""SELECT r.unwritten_bytes,f.id,f.size,f.offset,u.status
+                FROM disk_reservation r
+                LEFT JOIN files f ON f.id IN ({placeholders})
+                LEFT JOIN uploads u ON u.id=f.upload_id WHERE r.singleton=1""", ids).fetchall()
+            remaining = rows[0]["unwritten_bytes"]
+            for row in rows:
+                if row["status"] in ACTIVE:
+                    remaining -= max(0, min(row["size"], self.inflight_bytes[row["id"]]) - row["offset"])
+            free = shutil.disk_usage(self.disk_root).free
+            if free - remaining - extra < self.config.min_free_bytes:
+                fail(507, "디스크 여유 공간이 부족합니다. 관리자가 공간을 확보한 뒤 재시도하세요.")
 
     def start_upload(self, token, assignment_id, request_id, files):
         user = self.authenticate(token)
@@ -444,6 +520,10 @@ class Service:
             assignment = db.execute("SELECT * FROM assignments WHERE id=?", (assignment_id,)).fetchone()
             if not assignment or not assignment["is_open"]:
                 fail(409, "접수 중인 과제가 아닙니다.")
+            try:
+                validate_files(assignment, clean)
+            except FilePolicyError as exc:
+                fail(415, str(exc))
             if user["used_bytes"] + user["reserved_bytes"] + total > self.config.user_quota_bytes:
                 fail(413, "사용자 누적 한도를 초과합니다. 진행 중인 제출을 취소하거나 관리자에게 문의하세요.")
             self.check_disk(db, total)
@@ -453,6 +533,7 @@ class Service:
             for i, f in enumerate(clean):
                 db.execute("INSERT INTO files(id,upload_id,ordinal,name,size,sha256) VALUES (?,?,?,?,?,?)",
                            (uuid.uuid4().hex, upload_id, i, f["name"], f["size"], f["sha256"]))
+            assign_storage_names(db, upload_id)
             db.execute("UPDATE users SET reserved_bytes=reserved_bytes+? WHERE id=?", (total, user["id"]))
             return self.upload_result(db, self._upload(db, upload_id))
 
@@ -479,7 +560,6 @@ class Service:
                 duplicate = db.execute("SELECT * FROM chunks WHERE file_id=? AND offset=?", (file_id, offset)).fetchone()
                 if not duplicate:
                     fail(409, "확정된 청크 경계와 일치하지 않습니다.")
-            self.check_disk(db)
             return dict(upload), dict(f), dict(duplicate) if duplicate else None
 
     def commit_chunk(self, token, upload, file, offset, size, digest, duplicate):
@@ -512,7 +592,7 @@ class Service:
                 fail(409, "전송 상태가 변경되었습니다.")
             db.execute("UPDATE uploads SET updated_at=? WHERE id=?", (time.time(), upload_id))
 
-    def _discard_locked(self, upload_id, status):
+    def _discard_locked(self, upload_id, status, error=None):
         with self.store.connect() as db:
             upload = self._upload(db, upload_id)
             if upload["status"] == "completed":
@@ -526,7 +606,21 @@ class Service:
             current = self._upload(db, upload_id)
             if current["status"] in ACTIVE:
                 db.execute("UPDATE users SET reserved_bytes=reserved_bytes-? WHERE id=?", (current["total_bytes"], current["user_pk"]))
-            db.execute("UPDATE uploads SET status=?,updated_at=? WHERE id=?", (status, time.time(), upload_id))
+            db.execute("UPDATE uploads SET status=?,updated_at=?,error=COALESCE(?,error) WHERE id=?", (status, time.time(), error, upload_id))
+
+    def _submission_policy(self, db, upload, files, verified=False):
+        assignment = db.execute("SELECT * FROM assignments WHERE id=?", (upload["assignment_id"],)).fetchone()
+        validate_files(assignment, files)
+        if verified:
+            for file in files:
+                if file_category(file["name"]) != "video":
+                    continue
+                report = json.loads(file["video_validation"]) if file["video_validation"] else {}
+                if report.get("version") != VALIDATION_VERSION or report.get("status") != "passed" or report.get("sha256") != file["stored_sha256"]:
+                    raise FilePolicyError(f"{file['name']}: 영상 검증 결과가 없습니다. 다시 검증한 뒤 제출하세요.")
+                if assignment["video_audio_required"] and not report.get("audio_detected"):
+                    raise FilePolicyError(f"{file['name']}: 현재 과제 설정에서는 소리가 있는 영상이 필요합니다. 첫 5초의 녹음 상태를 확인하세요.")
+        return assignment
 
     def cancel(self, token, upload_id):
         with self.operation(upload_id):
@@ -552,6 +646,8 @@ class Service:
             self.check_disk(db)
             db.execute("UPDATE uploads SET status='verifying',updated_at=?,error=NULL WHERE id=?", (time.time(), upload_id))
         try:
+            with self.store.connect() as db:
+                assignment = self._submission_policy(db, upload, files)
             for f in files:
                 tmp, final = self.file_path(upload, f), self.file_path(upload, f, True)
                 path = final if final.exists() else tmp
@@ -562,17 +658,39 @@ class Service:
                 if size != f["size"] or sha != f["sha256"]:
                     self._discard_locked(upload_id, "failed")
                     fail(422, "파일 크기/해시 검증에 실패했습니다. 같은 파일을 확인하고 새 제출을 시작하세요.")
+                if file_category(f["name"]) == "video":
+                    if not self.video_slots.acquire(blocking=False):
+                        fail(429, "다른 영상 검사 중입니다. 잠시 뒤 다시 시도하세요.")
+                    try:
+                        report = validate_video(path, bool(assignment["video_audio_required"]))
+                    except VideoValidationError as exc:
+                        detail = f"{f['name']}: {exc}"
+                        self._discard_locked(upload_id, "failed", detail)
+                        fail(422, detail)
+                    except VideoValidatorUnavailable as exc:
+                        with self.store.connect(write=True) as db:
+                            db.execute("UPDATE uploads SET error=?,updated_at=? WHERE id=?", (str(exc), time.time(), upload_id))
+                        fail(503, str(exc))
+                    finally:
+                        self.video_slots.release()
+                    report.update(sha256=sha, checked_at=now_iso(time.time()))
+                    f["video_validation"] = json.dumps(report, ensure_ascii=False)
                 with path.open("r+b") as handle:
                     handle.flush()
                     os.fsync(handle.fileno())
                 with self.store.connect(write=True) as db:
                     if not recovery:
                         self.authenticate(token, db=db)
-                    db.execute("UPDATE files SET stored_sha256=? WHERE id=?", (sha, f["id"]))
+                    db.execute("UPDATE files SET stored_sha256=?,video_validation=? WHERE id=?", (sha, f["video_validation"], f["id"]))
+                    f["stored_sha256"] = sha
                     db.execute("UPDATE uploads SET updated_at=? WHERE id=?", (time.time(), upload_id))
             with self.store.connect(write=True) as db:
+                self._submission_policy(db, upload, files, verified=True)
                 db.execute("UPDATE uploads SET status='finalizing',updated_at=? WHERE id=?", (time.time(), upload_id))
                 return self.upload_result(db, self._upload(db, upload_id))
+        except FilePolicyError as exc:
+            self._discard_locked(upload_id, "failed", str(exc))
+            fail(415, str(exc))
         except (OSError, sqlite3.Error):
             # Durable verifying state is retryable; never report success on a write/commit error.
             fail(507, "검증 파일 또는 DB를 읽거나 동기화하지 못했습니다. 공간/권한 확인 후 재시도하세요.")
@@ -586,13 +704,19 @@ class Service:
                     return self.upload_result(db, row, bool(user and user["role"] == "admin"))
                 self.assert_live(row)
                 status = row["status"]
-            if status != "finalizing":
+                files = [dict(f) for f in db.execute("SELECT * FROM files WHERE upload_id=?", (upload_id,))]
+            needs_video_check = any(file_category(f["name"]) == "video" and (
+                not f["video_validation"] or json.loads(f["video_validation"]).get("version") != VALIDATION_VERSION
+            ) for f in files)
+            if status != "finalizing" or needs_video_check:
                 self._verify_locked(token, upload_id, recovery)
             with self.store.connect() as db:
                 upload = dict(self._upload(db, upload_id))
                 files = [dict(f) for f in db.execute("SELECT * FROM files WHERE upload_id=? ORDER BY ordinal", (upload_id,))]
                 self.check_disk(db)
             try:
+                with self.store.connect() as db:
+                    self._submission_policy(db, upload, files, verified=True)
                 for f in files:
                     src, dst = self.file_path(upload, f), self.file_path(upload, f, True)
                     if not recovery:
@@ -614,6 +738,9 @@ class Service:
                     fresh = self._upload(db, upload_id)
                     if fresh["status"] == "completed":
                         return self.upload_result(db, fresh)
+                    # Check inside the completion transaction too: an admin may
+                    # have changed categories or audio requirements during I/O.
+                    self._submission_policy(db, upload, files, verified=True)
                     self.check_disk(db)
                     number = db.execute("SELECT COALESCE(MAX(submission_number),0)+1 FROM uploads").fetchone()[0]
                     version = db.execute("SELECT COALESCE(MAX(version),0)+1 FROM uploads WHERE user_pk=? AND assignment_id=?", (upload["user_pk"], upload["assignment_id"])).fetchone()[0]
@@ -624,11 +751,15 @@ class Service:
                 self.fault_hook("after_commit")
                 with self.store.connect() as db:
                     return self.upload_result(db, self._upload(db, upload_id), bool(user and user["role"] == "admin"))
+            except FilePolicyError as exc:
+                self._discard_locked(upload_id, "failed", str(exc))
+                fail(415, str(exc))
             except (OSError, sqlite3.Error):
                 fail(507, "최종 파일 저장 또는 DB 확정에 실패했습니다. 완료되지 않았으며 상태 조회 후 재시도할 수 있습니다.")
 
     def recover(self):
         # Called under the exclusive instance supervisor lock, before API accepts requests.
+        self.migrate_storage()
         with self.store.connect() as db:
             pending = [dict(r) for r in db.execute("SELECT * FROM uploads WHERE status IN ('uploading','paused','verifying','finalizing')")]
         for upload in pending:
@@ -700,7 +831,15 @@ class Service:
             path = self.file_path(upload, f, True)
             if not path.is_file() or path.stat().st_size != f["size"]:
                 fail(409, "완료 파일이 없거나 외부에서 변경되었습니다. 관리자에게 복원을 요청하세요.")
-            return path, dict(f)
+            metadata = dict(f)
+            if user["role"] == "admin":
+                owner = db.execute("SELECT name,user_id FROM users WHERE id=?", (upload["user_pk"],)).fetchone()
+                metadata["download_name"] = (
+                    f"{storage_name(owner['name'], 32)}_{storage_name(owner['user_id'], 24)}_"
+                    f"제출-{upload['submission_number']:06d}_v{upload['version']}_{f['storage_name'] or storage_name(f['name'])}")
+            else:
+                metadata["download_name"] = f["name"]
+            return path, metadata
 
     def storage(self, token):
         self.authenticate(token, admin=True)
@@ -750,5 +889,5 @@ class Service:
             for s in submissions:
                 when = datetime.fromisoformat(s["completed_at"]).astimezone(ZoneInfo(self.config.timezone)).isoformat() if s else ""
                 writer.writerow([safe_cell(row["user_id"]), safe_cell(row["name"]), safe_cell(row["group"]), row["active"], row["submitted"], row["submission_count"], s["submission_number"] if s else "", s["version"] if s else "", when,
-                                 safe_cell(json.dumps([{ "name": f["name"], "size_bytes": f["size"]} for f in s["files"]], ensure_ascii=False)) if s else "", s["total_bytes"] if s else 0])
+                                 safe_cell(json.dumps([{ "name": f["name"], "size_bytes": f["size"], "storage_path": f["storage_path"]} for f in s["files"]], ensure_ascii=False)) if s else "", s["total_bytes"] if s else 0])
         return "\ufeff" + output.getvalue()

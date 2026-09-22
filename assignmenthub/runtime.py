@@ -11,8 +11,8 @@ import uvicorn
 
 async def serve(port: int):
     server = uvicorn.Server(uvicorn.Config("assignmenthub.api:app", host="127.0.0.1", port=port,
-                                           access_log=False, proxy_headers=True,
-                                           forwarded_allow_ips="127.0.0.1", timeout_graceful_shutdown=12))
+                                           access_log=False, proxy_headers=False,
+                                           timeout_graceful_shutdown=12))
     stop_file = Path(os.environ["AH_STOP_FILE"])
 
     async def watch():

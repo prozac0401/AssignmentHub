@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "browser": "152.0.4191.66",
+  "checks": [
+    "admin_creates_document_only_assignment",
+    "admin_toggles_archive_permission_and_persists",
+    "picker_and_drop_reject_archives_and_accept_document",
+    "renamed_invalid_video_has_no_submission_receipt",
+    "real_video_is_validated_before_receipt",
+    "silent_video_requires_explicit_permission",
+    "mobile_has_no_horizontal_overflow"
+  ],
+  "errors": []
+}

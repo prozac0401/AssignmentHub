@@ -2,7 +2,7 @@
 
 ## 받는 사람의 실행 방법
 
-1. `AssignmentHub-1.2.0-windows-x64.zip` 전체를 Windows 10/11 x64 PC의 쓰기 가능한 폴더에 압축 해제합니다.
+1. `AssignmentHub-1.4.0-windows-x64.zip` 전체를 Windows 10/11 x64 PC의 쓰기 가능한 폴더에 압축 해제합니다.
 2. 폴더 안의 `start.bat`를 더블클릭합니다. Python·pip·라이브러리 설치, 관리자 권한, 인터넷 다운로드가 필요하지 않습니다.
 3. 관리창에서 새 과정을 만들고 서버를 시작합니다. 같은 교육장 네트워크에서 사용할 IP와 방화벽 포트는 기존 운영 안내를 따릅니다.
 
@@ -13,7 +13,7 @@ BAT 하나만 다른 폴더로 옮기거나 ZIP 내부에서 직접 실행하지
 ## 포함되는 구성
 
 ```text
-AssignmentHub-1.2.0-windows-x64/
+AssignmentHub-1.4.0-windows-x64/
   start.bat                   서버 관리창
   manage.bat                  관리창 또는 CLI
   setup.bat                   오프라인 구성·해시 점검
@@ -49,18 +49,18 @@ build_portable.bat
 
 기존 `.venv`가 있으면 그 Python으로 빌드하며, 없으면 `py -3.12`를 사용합니다. 기본 Python 원본은 빌더의 `sys.base_prefix`입니다. 필요하면 `build_portable.bat --python-home "C:\Python312"`로 완전한 Python 설치 폴더를 지정합니다. Python 최소 embeddable ZIP만 지정하면 Tcl/Tk가 누락되므로 빌드가 중단됩니다.
 
-결과는 `dist/AssignmentHub-1.2.0-windows-x64/`, 같은 이름의 `.zip`, `.zip.sha256`입니다. 기존 배포본이나 운영 데이터를 덮어쓰지 않으며, 재빌드는 `build_portable.bat --output-dir dist\next`처럼 새 출력 폴더를 지정합니다. Python 패치 버전, 의존성 버전과 실제 파일 해시는 `distribution.json`에 기록됩니다.
+결과는 `dist/AssignmentHub-1.4.0-windows-x64/`, 같은 이름의 `.zip`, `.zip.sha256`입니다. 기존 배포본이나 운영 데이터를 덮어쓰지 않으며, 재빌드는 `build_portable.bat --output-dir dist\next`처럼 새 출력 폴더를 지정합니다. Python 패치 버전, 의존성 버전과 실제 파일 해시는 `distribution.json`에 기록됩니다.
 
 빌더는 고정 wheel 다운로드, 기존 Caddy 검증(없으면 공식 버전 다운로드), 라이선스 확보를 수행합니다. `--wheelhouse 폴더`를 지정하면 Python 의존성은 해당 wheel에서만 해시 검증해 설치합니다. 이 옵션만으로 Caddy와 라이선스 다운로드까지 오프라인화하지는 않습니다. 런타임과 배포 ZIP은 Git 제외 대상이므로 소스 ZIP 대신 빌드된 ZIP을 전달하세요.
 
 ## 검증
 
-빌드는 시스템 Python이 없는 PATH와 잘못된 `PYTHONHOME`·`PYTHONPATH`를 설정한 상태에서 내장 Python, Tk 생성, SQLite, Argon2, NumPy/Pandas/PyArrow, 시간대, Caddy 실행을 확인한 뒤 ZIP을 만듭니다. 전체 배포 파일 해시는 `setup.bat`로 재확인할 수 있습니다.
+빌드는 시스템 Python이 없는 PATH와 잘못된 `PYTHONHOME`·`PYTHONPATH`를 설정한 상태에서 내장 Python, Tk 생성, SQLite, Argon2, NumPy/Pandas/PyArrow, PyAV 영상 디코더, 시간대, Caddy 실행을 확인한 뒤 ZIP을 만듭니다. 전체 배포 파일 해시는 `setup.bat`로 재확인할 수 있습니다. 영상 검사를 사용하려면 PyAV를 포함한 새 배포본을 빌드해야 합니다. 운영 PC에 FFmpeg를 별도로 설치할 필요는 없습니다.
 
 배포 ZIP 자체의 이동·실행 검증:
 
 ```bat
-set AH_PORTABLE_ZIP=D:\releases\AssignmentHub-1.2.0-windows-x64.zip
+set AH_PORTABLE_ZIP=D:\releases\AssignmentHub-1.4.0-windows-x64.zip
 .venv\Scripts\python.exe -m pytest tests\test_portable.py -q
 ```
 

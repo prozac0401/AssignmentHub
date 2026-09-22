@@ -45,19 +45,22 @@ def check(gui: bool = False, verify: bool = False, quick: bool = False) -> dict:
     if any(not Path(p).resolve().is_relative_to(ROOT) for p in sys.path):
         raise ValueError("배포 폴더 외부의 Python 검색 경로가 있습니다.")
     modules = ("tkinter", "fastapi", "psutil", "assignmenthub.server_manager") if quick else (
-        "ssl", "sqlite3", "tkinter", "fastapi", "uvicorn", "streamlit", "argon2",
+        "ssl", "sqlite3", "tkinter", "fastapi", "uvicorn", "streamlit", "argon2", "cryptography.fernet",
         "httpx", "portalocker", "psutil", "multipart", "tzdata",
-        "numpy", "pandas", "pyarrow", "assignmenthub.server_manager")
+        "numpy", "pandas", "pyarrow", "av", "assignmenthub.server_manager")
     for module in modules:
         importlib.import_module(module)
     if not quick:
         import sqlite3
         from argon2 import PasswordHasher
+        from cryptography.fernet import Fernet
         from zoneinfo import ZoneInfo
         with sqlite3.connect(":memory:") as database:
             assert database.execute("select 1").fetchone() == (1,)
         hasher = PasswordHasher()
         assert hasher.verify(hasher.hash("portable-self-test"), "portable-self-test")
+        cipher = Fernet(Fernet.generate_key())
+        assert cipher.decrypt(cipher.encrypt(b"portable-self-test")) == b"portable-self-test"
         ZoneInfo("Asia/Seoul")
     if gui:
         import tkinter

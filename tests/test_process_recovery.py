@@ -60,7 +60,7 @@ def test_real_process_exit_recovery_and_idempotent_receipt(tmp_path, point):
         assignment_id = db.execute("select id from assignments").fetchone()[0]
     data = b"abcdefgh"
     sha = hashlib.sha256(data).hexdigest()
-    upload = service.start_upload(token, assignment_id, "crash_request_01", [{"name": "복구.bin", "size": len(data), "sha256": sha}])
+    upload = service.start_upload(token, assignment_id, "crash_request_01", [{"name": "복구.txt", "size": len(data), "sha256": sha}])
     upload_id, file_id = upload["id"], upload["files"][0]["id"]
     base = f"http://127.0.0.1:{config.port}"
     process = boot(config_path, config.port, point)

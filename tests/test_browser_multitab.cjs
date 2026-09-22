@@ -5,7 +5,7 @@ let playwright;try{playwright=require('playwright');}catch{playwright=require(pa
 async function main(){
   const fixture=JSON.parse(fs.readFileSync(process.argv[2],'utf8'))[0];const started=Date.now();
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'assignmenthub-multitab-'));
-  const sample=path.join(dir,'동시 탭 제출.bin');const data=Buffer.alloc(262157);for(let i=0;i<data.length;i++)data[i]=(i*13+37)%256;fs.writeFileSync(sample,data);const digest=crypto.createHash('sha256').update(data).digest('hex');
+  const sample=path.join(dir,'동시 탭 제출.txt');const data=Buffer.alloc(262157);for(let i=0;i<data.length;i++)data[i]=(i*13+37)%256;fs.writeFileSync(sample,data);const digest=crypto.createHash('sha256').update(data).digest('hex');
   const browser=await playwright.chromium.launch({headless:true,timeout:90000,...(os.platform()==='win32'?{channel:'msedge'}:{})});const context=await browser.newContext();const errors=[];
   try{
     const pages=[];for(let i=0;i<4;i++){const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));pages.push(page);}

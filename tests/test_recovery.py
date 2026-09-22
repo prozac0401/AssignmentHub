@@ -29,6 +29,7 @@ def test_u08_commit_failure_and_restart_recovery(hub, point):
     response = finish(client, user, upload)
     assert response.status_code == 507
     client.app.state.service.fault_hook = lambda _: None
+    client.app.state.roster_jobs.close()  # Simulated restart releases the original worker's store lock.
     with TestClient(create_app(config)) as restarted:
         again = login(restarted, "001", NEW_PASSWORD)
         done = finish(restarted, again, upload)
@@ -283,7 +284,7 @@ def test_i04_two_instances_survive_external_disk_space_loss(hub, tmp_path, monke
         two = student(other, other_admin)
         saved_two = complete_one(other, two)
         pending_one = begin(client, one, [("one", b"12345678")]).json()
-        pending_two = begin(other, two, [("two", b"12345678")]).json()
+        pending_two = begin(other, two, [("two.txt", b"12345678")]).json()
         usage = namedtuple("usage", "total used free")
         with monkeypatch.context() as context:
             context.setattr(module.shutil, "disk_usage", lambda _: usage(100, 100, 0))

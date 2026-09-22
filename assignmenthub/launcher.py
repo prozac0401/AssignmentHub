@@ -179,6 +179,7 @@ def caddy_config(config, api_port: int, ui_port: int) -> str:
     cookie_attributes = "; SameSite=Lax" + ("; Secure" if config.secure_cookies else "")
     return f"""{{
     admin off
+    persist_config off
     auto_https off
 }}
 :{config.port} {{
@@ -186,12 +187,19 @@ def caddy_config(config, api_port: int, ui_port: int) -> str:
 {tls}\
     @api path /api/* /upload /upload-static/*
     handle @api {{
-        reverse_proxy 127.0.0.1:{api_port}
+        reverse_proxy 127.0.0.1:{api_port} {{
+            header_up -X-AH-UI-*
+            header_up X-AH-Client-IP {{http.request.remote.host}}
+            header_up X-AH-Gateway-Key {{$AH_INTERNAL_CLIENT_SECRET}}
+        }}
     }}
     @root path /
     redir @root {base}/ 302
     handle {{
         reverse_proxy 127.0.0.1:{ui_port} {{
+            header_up -X-AH-UI-*
+            header_up X-AH-Client-IP {{http.request.remote.host}}
+            header_up X-AH-Gateway-Key {{$AH_INTERNAL_CLIENT_SECRET}}
             header_down Set-Cookie "(?i)(;[ ]*path=)/([; ]|$)" "${{1}}{base}/${{2}}"
             header_down Set-Cookie "(_streamlit_xsrf=.*)" "$1{cookie_attributes}"
         }}
@@ -222,6 +230,7 @@ def _environment(config_path: Path, api_port: int, launch_id: str, root: Path) -
     env = os.environ.copy()
     env.update(AH_CONFIG=str(config_path.resolve()), AH_API_URL=f"http://127.0.0.1:{api_port}",
                AH_LAUNCH_ID=launch_id, AH_STOP_FILE=str(root / f".api-stop-{launch_id}"),
+               AH_INTERNAL_CLIENT_SECRET=secrets.token_urlsafe(32),
                PYTHONUNBUFFERED="1", PYTHONUTF8="1")
     return env
 

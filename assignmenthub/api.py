@@ -17,11 +17,14 @@ from fastapi import Body, Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator
 from starlette.concurrency import run_in_threadpool
 
 from .config import Config
+from .client_identity import SECRET_ENV, login_client_ip
+from .file_policy import DEFAULT_CATEGORIES, FILE_CATEGORIES, FileCategory, normalize_categories, public_assignment
 from .service import Service, fail
+from .roster_jobs import RosterJobs, ROSTER_JSON_BYTES, ROSTER_PREVIEW_BYTES
 
 
 class Model(BaseModel):
@@ -57,20 +60,35 @@ class RosterApply(Model):
     common_temporary_password: str | None = Field(default=None, max_length=8)
 
 
+class RosterJob(RosterApply):
+    request_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_-]+$")
+
+
 class Active(Model):
     active: StrictBool
 
 
-class Assignment(Model):
+class AssignmentPolicy(Model):
+    @field_validator("allowed_file_categories", check_fields=False)
+    @classmethod
+    def categories(cls, value):
+        return normalize_categories(value) if value is not None else None
+
+
+class Assignment(AssignmentPolicy):
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(default="", max_length=10000)
     is_open: StrictBool = True
+    allowed_file_categories: list[FileCategory] = Field(default_factory=lambda: list(DEFAULT_CATEGORIES))
+    video_audio_required: StrictBool = True
 
 
-class AssignmentPatch(Model):
+class AssignmentPatch(AssignmentPolicy):
     title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=10000)
     is_open: StrictBool | None = None
+    allowed_file_categories: list[FileCategory] | None = None
+    video_audio_required: StrictBool | None = None
 
 
 class BrowserAssets(StaticFiles):
@@ -86,8 +104,10 @@ class BrowserAssets(StaticFiles):
 
 class RequestPolicy:
     """Pure ASGI guards: do not buffer request bodies, never disable XSRF/CORS."""
-    def __init__(self, app, config):
+    def __init__(self, app, config, service):
         self.app, self.config = app, config
+        self.service = service
+        self.roster_slots = threading.BoundedSemaphore(2)
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -97,7 +117,9 @@ class RequestPolicy:
         if origin and origin.rstrip("/") != self.config.public_url:
             return await JSONResponse({"detail": "허용되지 않은 접속 origin입니다. 안내된 서버 주소를 사용하세요."}, 403)(scope, receive, send)
         path = scope.get("path", "")
-        limit = 5 * 1024**2 if path == "/api/admin/roster/preview" else 2 * 1024**2
+        roster_request = scope["method"] == "POST" and path in {
+            "/api/admin/roster/preview", "/api/admin/roster/apply", "/api/admin/roster/jobs"}
+        limit = (ROSTER_PREVIEW_BYTES if path.endswith("/preview") else ROSTER_JSON_BYTES) if roster_request else 2 * 1024**2
         chunk = scope["method"] == "PATCH" and "/files/" in path
         if chunk:
             limit = self.config.chunk_bytes
@@ -125,7 +147,21 @@ class RequestPolicy:
                     extra.append((b"content-security-policy", b"default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'none'"))
                 message["headers"] = list(message.get("headers", [])) + extra
             await send(message)
-        await self.app(scope, bounded_receive, secure_send)
+        if roster_request:
+            # Authenticate before FastAPI reads/parses the larger roster body;
+            # bound concurrent buffering even for authorized clients.
+            try:
+                await run_in_threadpool(self.service.authenticate, bearer(Request(scope)), admin=True)
+            except HTTPException as exc:
+                return await JSONResponse({"detail": exc.detail}, exc.status_code)(scope, receive, secure_send)
+            if not self.roster_slots.acquire(blocking=False):
+                return await JSONResponse({"detail": "다른 명단 요청을 처리 중입니다. 잠시 뒤 재시도하세요."}, 429)(scope, receive, secure_send)
+            try:
+                await self.app(scope, bounded_receive, secure_send)
+            finally:
+                self.roster_slots.release()
+        else:
+            await self.app(scope, bounded_receive, secure_send)
 
 
 def bearer(request: Request):
@@ -137,10 +173,13 @@ def bearer(request: Request):
 
 def create_app(config: Config):
     service = Service(config)
+    roster_jobs = RosterJobs(service)
+    client_secret = os.environ.get(SECRET_ENV, "")
 
     @asynccontextmanager
     async def lifespan(app):
         await run_in_threadpool(service.recover)
+        await run_in_threadpool(roster_jobs.start)
         stop = threading.Event()
 
         def janitor():
@@ -151,14 +190,21 @@ def create_app(config: Config):
                     pass
         thread = threading.Thread(target=janitor, daemon=True, name="upload-cleanup")
         thread.start()
-        yield
-        stop.set()
-        await run_in_threadpool(thread.join, 5)
+        try:
+            yield
+        finally:
+            stop.set()
+            await run_in_threadpool(roster_jobs.close)
+            await run_in_threadpool(thread.join, 5)
 
-    app = FastAPI(title="AssignmentHub", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
+    # Public HTTPS terminates at Caddy; do not build slash redirects from the
+    # private HTTP hop's scheme or replay credential-bearing POSTs over HTTP.
+    app = FastAPI(title="AssignmentHub", docs_url=None, redoc_url=None, openapi_url=None,
+                  redirect_slashes=False, lifespan=lifespan)
     app.state.service = service
+    app.state.roster_jobs = roster_jobs
     app.state.config = config
-    app.add_middleware(RequestPolicy, config=config)
+    app.add_middleware(RequestPolicy, config=config, service=service)
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request, exc):
@@ -182,11 +228,14 @@ def create_app(config: Config):
         return {"instance_id": config.instance_id, "course_name": config.course_name, "timezone": config.timezone, "public_url": config.public_url,
                 "max_file_bytes": config.max_file_bytes, "user_quota_bytes": config.user_quota_bytes,
                 "chunk_bytes": config.chunk_bytes, "max_files": config.max_files, "concurrent_uploads": config.concurrent_uploads,
+                "file_categories": FILE_CATEGORIES, "video_sample_seconds": 5,
                 "ui_path": "/ui/" + config.instance_id + "/"}
 
     @app.post("/api/auth/login")
     def login(body: Login, request: Request):
-        return service.login(body.user_id, body.password, request.client.host if request.client else "local")
+        peer = login_client_ip(request.headers, request.client.host if request.client else "local",
+                               client_secret, body.user_id, body.password)
+        return service.login(body.user_id, body.password, peer)
 
     @app.post("/api/auth/password")
     def password(body: Password, token=Depends(bearer)):
@@ -206,7 +255,7 @@ def create_app(config: Config):
     def assignments(token=Depends(bearer)):
         service.authenticate(token)
         with service.store.connect() as db:
-            return [{**dict(r), "is_open": bool(r["is_open"])} for r in db.execute("SELECT * FROM assignments ORDER BY rowid")]
+            return [public_assignment(r) for r in db.execute("SELECT * FROM assignments ORDER BY rowid")]
 
     @app.get("/api/quota")
     def quota(token=Depends(bearer)):
@@ -254,6 +303,7 @@ def create_app(config: Config):
             service.slots.release()
             fail(409, "이 제출의 다른 전송/검증이 진행 중입니다. 상태 조회 후 재시도하세요.")
         handle, committed, duplicate, original_offset, prepared = None, False, None, 0, False
+        tracking_disk = False
         try:
             upload, file, duplicate = await run_in_threadpool(service.prepare_chunk, token, upload_id, file_id, offset)
             prepared = True
@@ -262,15 +312,30 @@ def create_app(config: Config):
                 path = service.file_path(upload, file)
 
                 def open_part():
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    f = path.open("r+b" if path.exists() else "w+b")
-                    if f.seek(0, 2) < original_offset:
-                        f.close()
-                        fail(409, "확정된 임시 파일이 손상되었습니다. 관리자 점검이 필요합니다.")
-                    f.truncate(original_offset)
-                    f.seek(original_offset)
-                    return f
+                    nonlocal tracking_disk
+                    with service.disk_guard:
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        # Unbuffered writes keep the in-flight disk credit equal
+                        # to bytes materialized on disk, even before fsync.
+                        f = path.open("r+b" if path.exists() else "w+b", buffering=0)
+                        try:
+                            if f.seek(0, 2) < original_offset:
+                                fail(409, "확정된 임시 파일이 손상되었습니다. 관리자 점검이 필요합니다.")
+                            f.truncate(original_offset)
+                            f.seek(original_offset)
+                            service.inflight_bytes[file_id] = original_offset
+                            tracking_disk = True
+                            return f
+                        except BaseException:
+                            f.close()
+                            raise
                 handle = await run_in_threadpool(open_part)
+            # Truncate any failed rollback's tail before checking free space so
+            # a retry can make progress even at the reservation boundary.
+            def check_space():
+                with service.store.connect() as db:
+                    service.check_disk(db)
+            await run_in_threadpool(check_space)
             digest, received = hashlib.sha256(), 0
             last_activity = time.monotonic()
             async for data in request.stream():
@@ -284,11 +349,16 @@ def create_app(config: Config):
                 # Thread-pool I/O, bounded Uvicorn receive blocks, no full request/file buffering.
                 def write_block(block):
                     service.authenticate(token)
-                    with service.store.connect() as db:
-                        service.check_disk(db)
-                    digest.update(block)
-                    if handle:
-                        handle.write(block)
+                    with service.disk_guard:
+                        with service.store.connect() as db:
+                            service.check_disk(db)
+                        digest.update(block)
+                        if handle:
+                            try:
+                                if handle.write(block) != len(block):
+                                    raise OSError("청크 파일 쓰기가 일부만 완료되었습니다.")
+                            finally:
+                                service.inflight_bytes[file_id] = os.fstat(handle.fileno()).st_size
                     service.fault_hook("during_chunk")
                 await run_in_threadpool(write_block, data)
                 if time.monotonic() - last_activity >= min(5, config.upload_ttl_hours * 900):
@@ -309,9 +379,13 @@ def create_app(config: Config):
         except BaseException:
             if handle and not committed:
                 def rollback():
-                    handle.truncate(original_offset)
-                    handle.flush()
-                    os.fsync(handle.fileno())
+                    with service.disk_guard:
+                        try:
+                            handle.truncate(original_offset)
+                            handle.flush()
+                            os.fsync(handle.fileno())
+                        finally:
+                            service.inflight_bytes[file_id] = os.fstat(handle.fileno()).st_size
                 try:
                     await run_in_threadpool(rollback)
                 except OSError:
@@ -323,10 +397,17 @@ def create_app(config: Config):
                     pass
             raise
         finally:
-            if handle:
-                await run_in_threadpool(handle.close)
-            lock.release()
-            service.slots.release()
+            try:
+                if handle:
+                    await run_in_threadpool(handle.close)
+            finally:
+                try:
+                    with service.disk_guard:
+                        if tracking_disk:
+                            service.inflight_bytes.pop(file_id, None)
+                    lock.release()
+                finally:
+                    service.slots.release()
 
     @app.post("/api/uploads/{upload_id}/verify")
     def verify(upload_id: str, token=Depends(bearer)):
@@ -351,7 +432,7 @@ def create_app(config: Config):
                     yield data
         return StreamingResponse(stream(), media_type="application/octet-stream", headers={
             "Content-Length": str(metadata["size"]),
-            "Content-Disposition": "attachment; filename=assignment-file; filename*=UTF-8''" + quote(metadata["name"], safe=""),
+            "Content-Disposition": "attachment; filename=assignment-file; filename*=UTF-8''" + quote(metadata.get("download_name", metadata["name"]), safe=""),
         })
 
     @app.get("/api/files/{file_id}/download")
@@ -401,6 +482,26 @@ def create_app(config: Config):
     def apply_roster(body: RosterApply, token=Depends(bearer)):
         return service.roster_apply(token, body.rows, body.update_existing, body.common_temporary_password)
 
+    @app.post("/api/admin/roster/jobs", status_code=202)
+    def create_roster_job(body: RosterJob, token=Depends(bearer)):
+        return roster_jobs.create(token, **body.model_dump())
+
+    @app.get("/api/admin/roster/jobs")
+    def list_roster_jobs(token=Depends(bearer)):
+        return roster_jobs.list(token)
+
+    @app.get("/api/admin/roster/jobs/{job_id}")
+    def roster_job_status(job_id: str, token=Depends(bearer)):
+        return roster_jobs.get(token, job_id)
+
+    @app.get("/api/admin/roster/jobs/{job_id}/result")
+    def roster_job_result(job_id: str, token=Depends(bearer)):
+        return roster_jobs.get(token, job_id, result=True)
+
+    @app.delete("/api/admin/roster/jobs/{job_id}/result")
+    def acknowledge_roster_result(job_id: str, token=Depends(bearer)):
+        return roster_jobs.acknowledge(token, job_id)
+
     @app.post("/api/admin/users/{user_pk}/reset")
     def reset(user_pk: str, token=Depends(bearer)):
         return service.reset_password(token, user_pk)
@@ -417,9 +518,10 @@ def create_app(config: Config):
             if not body.title.strip():
                 fail(422, "과제명을 입력하세요.")
             aid = uuid.uuid4().hex
-            db.execute("INSERT INTO assignments VALUES (?,?,?,?)", (aid, body.title.strip(), body.description, int(body.is_open)))
+            db.execute("INSERT INTO assignments(id,title,description,is_open,allowed_file_categories,video_audio_required) VALUES (?,?,?,?,?,?)",
+                       (aid, body.title.strip(), body.description, int(body.is_open), json.dumps(body.allowed_file_categories), int(body.video_audio_required)))
             service.audit(db, user["user_id"], "assignment_create", aid)
-            return {"id": aid, **body.model_dump()}
+            return public_assignment(db.execute("SELECT * FROM assignments WHERE id=?", (aid,)).fetchone())
 
     @app.patch("/api/admin/assignments/{assignment_id}")
     def edit_assignment(assignment_id: str, body: AssignmentPatch, token=Depends(bearer)):
@@ -428,14 +530,17 @@ def create_app(config: Config):
             old = db.execute("SELECT * FROM assignments WHERE id=?", (assignment_id,)).fetchone()
             if not old:
                 fail(404, "과제를 찾을 수 없습니다.")
-            values = {**dict(old), **body.model_dump(exclude_none=True)}
+            values = {**public_assignment(old), **body.model_dump(exclude_none=True)}
             if not values["title"].strip():
                 fail(422, "과제명을 입력하세요.")
-            changed = db.execute("UPDATE assignments SET title=?,description=?,is_open=? WHERE id=?", (values["title"].strip(), values["description"], int(values["is_open"]), assignment_id)).rowcount
+            changed = db.execute("UPDATE assignments SET title=?,description=?,is_open=?,allowed_file_categories=?,video_audio_required=? WHERE id=?",
+                                 (values["title"].strip(), values["description"], int(values["is_open"]),
+                                  json.dumps(values["allowed_file_categories"]), int(values["video_audio_required"]), assignment_id)).rowcount
             if not changed:
                 fail(404, "과제를 찾을 수 없습니다.")
-            service.audit(db, user["user_id"], "assignment_edit", assignment_id, "is_open=" + str(values["is_open"]))
-            return values
+            service.audit(db, user["user_id"], "assignment_edit", assignment_id,
+                          json.dumps({key: values[key] for key in ("is_open", "allowed_file_categories", "video_audio_required")}, ensure_ascii=False))
+            return public_assignment(db.execute("SELECT * FROM assignments WHERE id=?", (assignment_id,)).fetchone())
 
     @app.get("/api/admin/dashboard")
     def dashboard(assignment_id: str | None = None, search: str = "", group: str = "", include_inactive: bool = False, token=Depends(bearer)):

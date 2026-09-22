@@ -8,6 +8,8 @@ import sqlite3
 import uuid
 
 from .config import Config
+from .disk_reservations import initialize_disk_reservations
+from .file_policy import ALL_CATEGORIES, DEFAULT_CATEGORIES
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -26,6 +28,15 @@ CREATE TABLE IF NOT EXISTS grants (
  digest TEXT PRIMARY KEY, session_digest TEXT NOT NULL, kind TEXT NOT NULL, object_id TEXT, expires REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, failures INTEGER NOT NULL, window_start REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS roster_jobs (
+ id TEXT PRIMARY KEY, owner_pk TEXT NOT NULL REFERENCES users(id), owner_epoch INTEGER NOT NULL,
+ request_id TEXT NOT NULL, manifest_digest TEXT NOT NULL, status TEXT NOT NULL,
+ payload BLOB, result BLOB, created_at REAL NOT NULL, completed_at REAL, expires_at REAL NOT NULL,
+ total_rows INTEGER NOT NULL, processed_rows INTEGER NOT NULL DEFAULT 0,
+ created_count INTEGER NOT NULL DEFAULT 0, updated_count INTEGER NOT NULL DEFAULT 0, error TEXT,
+ UNIQUE(owner_pk,request_id)
+);
+CREATE INDEX IF NOT EXISTS roster_jobs_owner ON roster_jobs(owner_pk,status);
 CREATE TABLE IF NOT EXISTS assignments (
  id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', is_open INTEGER NOT NULL DEFAULT 1
 );
@@ -85,8 +96,28 @@ class Store:
         with self.connect() as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.executescript(SCHEMA)
+        # Additive migration preserves existing submissions and the unrestricted
+        # file policy of older assignments. Serialize concurrent process startup.
+        with self.connect(write=True) as db:
+            columns = {r["name"] for r in db.execute("PRAGMA table_info(assignments)")}
+            if "allowed_file_categories" not in columns:
+                default = json.dumps(ALL_CATEGORIES)
+                db.execute(f"ALTER TABLE assignments ADD COLUMN allowed_file_categories TEXT NOT NULL DEFAULT '{default}'")
+            if "video_audio_required" not in columns:
+                db.execute("ALTER TABLE assignments ADD COLUMN video_audio_required INTEGER NOT NULL DEFAULT 1")
+            if "video_validation" not in {r["name"] for r in db.execute("PRAGMA table_info(files)")}:
+                db.execute("ALTER TABLE files ADD COLUMN video_validation TEXT")
+            for column in ("storage_dir", "temp_dir"):
+                if column not in {r["name"] for r in db.execute("PRAGMA table_info(uploads)")}:
+                    db.execute(f"ALTER TABLE uploads ADD COLUMN {column} TEXT")
+            if "storage_name" not in {r["name"] for r in db.execute("PRAGMA table_info(files)")}:
+                db.execute("ALTER TABLE files ADD COLUMN storage_name TEXT")
+            initialize_disk_reservations(db)
             if not db.execute("SELECT 1 FROM assignments").fetchone():
-                db.execute("INSERT INTO assignments(id,title) VALUES (?,?)", (uuid.uuid4().hex, "기본 과제"))
+                # The unrestricted column default exists only for legacy rows.
+                # A fresh instance follows the same policy as an API-created task.
+                db.execute("INSERT INTO assignments(id,title,allowed_file_categories,video_audio_required) VALUES (?,?,?,1)",
+                           (uuid.uuid4().hex, "기본 과제", json.dumps(DEFAULT_CATEGORIES)))
 
     @contextmanager
     def connect(self, write=False):

@@ -292,7 +292,9 @@ def main():
         print(f"Generating {args.users} actual files of {args.file_bytes:,} bytes in {source_dir}", flush=True)
         sources = []
         for index in range(args.users):
-            source = source_dir / f"worker-{index + 1}.bin"
+            # Exercise the normal default document policy; file contents are
+            # deterministic load-test bytes, not a format-validation fixture.
+            source = source_dir / f"worker-{index + 1}.txt"
             sources.append((source, create_source(source, args.file_bytes, index)))
         sampler = Sampler(args.server_pid, args.storage_root.resolve())
         sampler.start()

@@ -12,9 +12,13 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
+import uuid
 
 import streamlit as st
 import streamlit.components.v1 as components
+
+from assignmenthub.file_policy import DEFAULT_CATEGORIES, FILE_CATEGORIES, policy_summary
+from assignmenthub.client_identity import SECRET_ENV, ui_login_headers
 
 
 API_URL = os.environ.get("AH_API_URL", "http://127.0.0.1:8601").rstrip("/")
@@ -37,6 +41,9 @@ def call(path: str, method: str = "GET", data=None, raw: bytes | None = None, co
         headers["Content-Type"] = "application/json"
     if content_type:
         headers["Content-Type"] = content_type
+    if path == "/auth/login" and method == "POST" and data is not None:
+        headers.update(ui_login_headers(st.context.headers, os.environ.get(SECRET_ENV, ""),
+                                        data["user_id"], data["password"]))
     try:
         with urlopen(Request(API_URL + "/api" + path, data=payload, headers=headers, method=method), timeout=60) as response:
             result = response.read()  # JSON / small roster / CSV only; never submission files.
@@ -111,9 +118,9 @@ def clear_session():
 def login():
     left, main = st.columns([1, 1], gap="large")
     with left:
-        st.markdown('''<div class="ah-login-intro"><div class="ah-eyebrow">YOUR CLASS WORKSPACE</div>
-<h2>과제 제출부터 확인까지,<br>한 곳에서 간편하게.</h2>
-<p>수업의 파일과 제출 기록을 함께 관리하세요.<br>전송이 끊겨도 같은 파일로 이어 올릴 수 있습니다.</p>
+        st.markdown('''<div class="ah-login-intro"><div class="ah-eyebrow">이용 안내</div>
+<h2>과제 제출 및 확인</h2>
+<p>수강생은 과제 파일을 제출하고 제출 이력을 확인합니다.<br>관리자는 수강생 명단, 과제 접수 상태와 제출 파일을 관리합니다.</p>
 <div class="ah-login-steps"><div><span>01</span>전달받은 계정으로 로그인</div>
 <div><span>02</span>과제를 선택하고 파일 제출</div><div><span>03</span>제출번호로 완료 확인</div></div></div>''', unsafe_allow_html=True)
     with main:
@@ -163,12 +170,17 @@ def file_download(file: dict, key: str):
 
 def submission_details(item: dict, key: str, admin: bool = False):
     st.write(f"**제출번호 {item.get('submission_number', '—')}** · 버전 {item.get('version', '—')}")
-    st.caption(f"{item.get('assignment_title', item.get('assignment_id', ''))} · ID {item.get('user_id', '')} · {timestamp(item.get('completed_at'))}")
+    st.caption(f"{item.get('assignment_title', '')} · {item.get('name', '')} (ID {item.get('user_id', '')}) · {timestamp(item.get('completed_at'))}")
     for index, file in enumerate(item.get("files", [])):
         left, right = st.columns([4, 1])
         with left:
             st.text(file["name"])
             st.caption(f"{size(file['size'])} · {int(file['size']):,} B")
+            report = file.get("video_validation")
+            if report and report["status"] == "passed":
+                st.caption(f"첫 {report['sample_seconds']}초 검증 완료 · 화면 데이터 읽기 확인 · " + ("소리 확인" if report["audio_detected"] else "무음 허용"))
+                for warning in report.get("warnings", []):
+                    st.warning(warning)
             if admin and file.get("storage_path"):
                 st.code(file["storage_path"], language=None)
         with right:
@@ -200,8 +212,14 @@ def student_home():
     st.divider()
     st.subheader("과제 제출")
     if assignments:
-        assignment = st.selectbox("과제", assignments, format_func=lambda a: a["title"] + (" · 접수 중" if a["is_open"] else " · 접수 종료"))
+        by_id = {a["id"]: a for a in assignments}
+        chosen = st.selectbox("과제", list(by_id), format_func=lambda aid: by_id[aid]["title"] + (" · 접수 중" if by_id[aid]["is_open"] else " · 접수 종료"))
+        assignment = by_id[chosen]
         st.text(assignment.get("description", ""))
+        st.caption("허용 파일: " + policy_summary(assignment))
+        if "video" in assignment["allowed_file_categories"]:
+            st.caption("영상은 제출 확정 전 첫 5초의 화면·음성을 검사합니다. " +
+                       ("소리가 있는 영상만 제출할 수 있습니다." if assignment["video_audio_required"] else "무음 영상도 제출할 수 있습니다."))
         if not assignment["is_open"]:
             st.info("신규 제출 접수가 종료되었습니다. 종료 전에 시작한 유효한 작업은 보관 시간 내에 이어 올릴 수 있습니다.")
     else:
@@ -229,13 +247,80 @@ def student_home():
             submission_details(item, item["id"])
 
 
+def accept_roster_job():
+    """Keep the request ID until acceptance is known, including a lost response."""
+    result = call("/admin/roster/jobs", "POST", st.session_state.roster_pending)
+    st.session_state.pop("roster_pending", None)
+    st.session_state.pop("roster_preview", None)
+    st.session_state.clear_roster_password = True
+    return result
+
+
+@st.fragment(run_every=2)
+def roster_jobs_panel():
+    try:
+        jobs = call("/admin/roster/jobs")
+        pending = st.session_state.get("roster_pending")
+        if pending:
+            if any(job["request_id"] == pending["request_id"] for job in jobs):
+                st.session_state.pop("roster_pending", None)
+                st.session_state.pop("roster_preview", None)
+                st.session_state.clear_roster_password = True
+                st.rerun()
+            st.warning("명단 작업의 접수 응답을 확인하지 못했습니다. 같은 요청으로 다시 확인할 수 있습니다.")
+            if st.button("명단 작업 접수 재시도"):
+                accept_roster_job()
+                st.rerun()
+        for job in jobs:
+            if job["status"] in ("queued", "running"):
+                label = "명단 등록 대기 중" if job["status"] == "queued" else "명단 등록 중"
+                st.progress(job["processed_rows"] / job["total_rows"],
+                            text=f"{label} · {job['processed_rows']:,}/{job['total_rows']:,}명 준비")
+                st.caption("화면을 다시 열거나 재로그인해도 이 관리자의 작업 결과를 조회할 수 있습니다.")
+            elif job["status"] != "completed":
+                st.warning(job.get("error") or "이전 명단 작업 결과가 만료되었거나 삭제되었습니다.")
+                if st.button("작업 알림 닫기", key="dismiss_roster_" + job["id"]):
+                    call(f"/admin/roster/jobs/{job['id']}/result", "DELETE")
+                    st.rerun()
+        completed = [job for job in jobs if job["status"] == "completed"]
+        if not completed:
+            st.session_state.pop("credentials", None)
+            st.session_state.pop("credentials_job", None)
+            return
+        by_id = {job["id"]: job for job in completed}
+        selected = st.selectbox("조회할 명단 등록 결과", list(by_id),
+                                format_func=lambda value: f"{timestamp(by_id[value]['completed_at'])} · 신규 {by_id[value]['created_count']}명 · 변경 {by_id[value]['updated_count']}명")
+        job = by_id[selected]
+        if st.session_state.get("credentials_job") != selected:
+            result = call(f"/admin/roster/jobs/{selected}/result")
+            st.session_state.credentials = result["created"]
+            st.session_state.credentials_job = selected
+        with st.container(border=True):
+            st.success(f"신규 {job['created_count']}명 등록 · 기존 {job['updated_count']}명 정보 변경")
+            st.warning("임시비밀번호 결과를 안전하게 저장·배포하세요. 결과 닫기 또는 완료 1시간 후에는 복구 키와 결과가 삭제됩니다.")
+            st.caption("결과 보관 만료: " + timestamp(job["expires_at"]))
+            if st.session_state.credentials:
+                st.dataframe(st.session_state.credentials, hide_index=True, use_container_width=True)
+                private_csv_download("임시비밀번호 결과 CSV 다운로드", csv_bytes(st.session_state.credentials, ["user_id", "name", "temporary_password"]), "temporary_passwords.csv")
+            if st.button("임시비밀번호 결과 닫기"):
+                call(f"/admin/roster/jobs/{selected}/result", "DELETE")
+                st.session_state.pop("credentials", None)
+                st.session_state.pop("credentials_job", None)
+                st.rerun()
+    except APIError as exc:
+        if exc.status in (401, 403, 404, 410):
+            st.session_state.pop("credentials", None)
+            st.session_state.pop("credentials_job", None)
+        st.error(str(exc))
+        st.caption("연결이 복구되면 명단 작업 상태를 다시 조회합니다.")
+
+
 def admin_roster():
     if st.session_state.pop("clear_roster_password", False):
         st.session_state.pop("roster_common_password", None)
         st.session_state.pop("roster_use_common_password", None)
     st.subheader("사용자 명단 등록")
-    if st.session_state.get("roster_success"):
-        st.success(st.session_state.pop("roster_success"))
+    roster_jobs_panel()
     st.caption("첫 행에 user_id와 name을 넣고 열은 탭으로 구분하세요. group은 선택입니다. ID는 텍스트 그대로 읽으며 앞자리 0과 대소문자를 구분합니다.")
     template = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates", "users_template.tsv")
     if os.path.isfile(template):
@@ -281,23 +366,17 @@ def admin_roster():
                                             key="roster_common_password",
                                             help="영문·숫자 8자리입니다. 이번 명단의 신규 계정에만 적용하며 추가 등록 시 같은 값을 다시 입력하세요.")
         st.caption("기본값은 개인별 임시비밀번호 자동 발급(영문·숫자 8자리)입니다. 첫 로그인 후 개인 비밀번호로 변경합니다.")
-        if st.button("검증된 명단 반영", disabled=not preview.get("valid"), type="primary"):
+        if st.button("검증된 명단 반영", disabled=not preview.get("valid") or bool(st.session_state.get("roster_pending")), type="primary"):
             rows = [{k: r.get(k, "") for k in ("user_id", "name", "group")} for r in preview["rows"]]
-            result = call("/admin/roster/apply", "POST", {"rows": rows, "update_existing": update,
-                                                       "common_temporary_password": common_password})
-            st.session_state.credentials = result.get("created", [])
-            st.session_state.pop("roster_preview", None)
-            st.session_state.clear_roster_password = True
-            st.session_state.roster_success = f"신규 {len(result.get('created', []))}명 등록 · 기존 {result.get('updated', 0)}명 정보 변경"
+            st.session_state.roster_pending = {"request_id": uuid.uuid4().hex, "rows": rows,
+                                                "update_existing": update, "common_temporary_password": common_password}
+            try:
+                accept_roster_job()
+            except APIError as exc:
+                if exc.status in (400, 403, 409, 413, 422):
+                    st.session_state.pop("roster_pending", None)
+                raise
             st.rerun()
-    if st.session_state.get("credentials"):
-        with st.container(border=True):
-            st.warning("신규 사용자의 임시비밀번호입니다. 이 결과를 안전하게 배포하세요. 결과 닫기 또는 로그아웃 후에는 다시 조회할 수 없습니다.")
-            st.dataframe(st.session_state.credentials, hide_index=True, use_container_width=True)
-            private_csv_download("임시비밀번호 결과 CSV 다운로드", csv_bytes(st.session_state.credentials, ["user_id", "name", "temporary_password"]), "temporary_passwords.csv")
-            if st.button("임시비밀번호 결과 닫기"):
-                del st.session_state["credentials"]
-                st.rerun()
     st.divider()
     st.subheader("사용자 계정 관리")
     search = st.text_input("ID·이름·그룹 검색")
@@ -343,7 +422,7 @@ def admin_home():
     with st.container(border=True):
         st.markdown("**1. 수강생 명단 등록**")
         st.write(f"현재 활성 수강생 {len(students)}명입니다." if students else "TSV 명단을 붙여넣거나 파일을 올리고, 미리보기를 확인한 뒤 등록하세요.")
-        st.caption("처음 등록한 수강생에게는 서로 다른 임시비밀번호가 발급됩니다. 수강생은 첫 로그인 후 새 비밀번호로 변경합니다.")
+        st.caption("신규 수강생은 개인별 자동 발급 또는 등록 시 지정한 공통 임시비밀번호를 사용합니다. 첫 로그인 후 새 비밀번호로 변경합니다.")
         if st.button("명단 등록·사용자 관리로 이동", type="primary" if not students else "secondary"):
             navigate("사용자 관리")
     with st.container(border=True):
@@ -366,28 +445,53 @@ def admin_home():
         st.write("중지 상태를 확인한 뒤 설정 JSON과 저장 폴더 전체를 함께 백업하세요. 완료 제출물은 자동 삭제하지 않습니다.")
 
 
+def assignment_file_fields(key, assignment=None):
+    allowed = assignment["allowed_file_categories"] if assignment else DEFAULT_CATEGORIES
+    st.markdown("**허용할 제출 파일**")
+    columns = st.columns(3)
+    chosen = []
+    for index, category in enumerate(FILE_CATEGORIES):
+        help_text = ", ".join(category["extensions"]) or "위 분류에 없는 확장자와 확장자 없는 파일. 해제한 분류는 기타를 켜도 허용되지 않습니다."
+        if columns[index % 3].checkbox(category["label"], value=category["id"] in allowed,
+                                       key=key + "_" + category["id"], help=help_text):
+            chosen.append(category["id"])
+    st.caption("체크한 분류만 제출할 수 있습니다. 모두 해제하면 파일 제출을 막습니다. 압축파일 내부의 개별 파일은 검사하지 않습니다.")
+    audio_required = st.checkbox("영상에 소리 필수", value=bool(assignment["video_audio_required"]) if assignment else True,
+                                 key=key + "_video_audio_required", help="영상 파일에 적용됩니다. 해제하면 무음 영상도 허용하며 화면·음성 데이터의 손상 검사는 계속합니다.")
+    st.caption("영상은 제출 확정 전에 첫 5초를 실제로 읽어 검사합니다. 5초보다 짧으면 전체 구간을 검사합니다. 소리 필수일 때 시작 부분이 무음이면 제출할 수 없습니다.")
+    return {"allowed_file_categories": chosen, "video_audio_required": audio_required}
+
+
 def admin_assignments():
     st.subheader("과제 관리")
+    st.caption("과제 설명에는 제출할 산출물, 제출 방법, 기한 등 확인된 정보를 입력하세요.")
     assignments = call("/assignments")
     with st.expander("새 과제 추가", expanded=not assignments):
         with st.form("new_assignment", clear_on_submit=True):
             title = st.text_input("새 과제명", max_chars=200)
             description = st.text_area("과제 설명", max_chars=10000)
             opened = st.checkbox("즉시 접수 시작", value=True)
+            policy = assignment_file_fields("new_assignment")
             submit = st.form_submit_button("과제 추가", type="primary")
         if submit:
-            call("/admin/assignments", "POST", {"title": title, "description": description, "is_open": opened})
+            call("/admin/assignments", "POST", {"title": title, "description": description, "is_open": opened, **policy})
             st.rerun()
     if assignments:
-        selected = st.selectbox("수정할 과제", assignments, format_func=lambda a: a["title"])
+        # A selectbox can retain an old dict value after an API update. Keep
+        # only the stable ID in the widget and read policy from the fresh list.
+        by_id = {a["id"]: a for a in assignments}
+        selected_id = st.selectbox("수정할 과제", list(by_id), format_func=lambda aid: by_id[aid]["title"])
+        selected = by_id[selected_id]
         with st.form("edit_assignment_" + selected["id"]):
             title = st.text_input("과제명", value=selected["title"], max_chars=200)
             description = st.text_area("설명", value=selected.get("description", ""), max_chars=10000)
             opened = st.checkbox("접수 중", value=bool(selected["is_open"]))
             st.caption("접수 종료는 신규 제출 시작을 막습니다. 종료 전에 시작한 유효한 작업은 보관 시간 내에 완료할 수 있습니다.")
+            policy = assignment_file_fields("edit_" + selected["id"], selected)
+            st.caption("파일 분류와 소리 필수 설정은 진행 중인 제출에도 확정 시 적용됩니다. 이미 완료된 제출은 유지됩니다.")
             save = st.form_submit_button("변경 사항 저장", type="primary")
         if save:
-            call(f"/admin/assignments/{selected['id']}", "PATCH", {"title": title, "description": description, "is_open": opened})
+            call(f"/admin/assignments/{selected['id']}", "PATCH", {"title": title, "description": description, "is_open": opened, **policy})
             st.rerun()
 
 
@@ -402,27 +506,55 @@ def admin_dashboard():
     search = c1.text_input("ID·이름·그룹 검색", key="dashboard_search")
     group = c2.text_input("그룹 정확히 일치", key="dashboard_group")
     inactive = c3.checkbox("비활성 계정 포함")
+    st.button("현황 새로고침")
     data = call("/admin/dashboard?" + urlencode({"assignment_id": assignment["id"], "search": search, "group": group, "include_inactive": str(inactive).lower()}))
     metrics = st.columns(5)
     for column, label, field in zip(metrics, ("활성 대상자", "제출자", "미제출자", "진행 건수", "실패 건수"), ("target_count", "submitted_count", "missing_count", "in_progress_count", "failed_count")):
         column.metric(label, data[field])
-    st.caption("제출자는 이 과제에 완료된 제출이 하나 이상 있는 활성 수강생입니다. 관리자와 미완료 작업은 제출자 수에 포함되지 않습니다.")
+    st.caption("집계는 검색 조건과 관계없이 이 과제 전체 기준입니다. 제출자는 완료된 제출이 하나 이상 있는 활성 수강생입니다. 미완료 작업은 제출자 수에 포함되지 않습니다.")
     mode = st.radio("목록 필터", ["전체", "제출자", "미제출자"], horizontal=True)
     rows = [r for r in data["rows"] if mode == "전체" or bool(r["submitted"]) == (mode == "제출자")]
-    st.dataframe([{"ID": r["user_id"], "이름": r["name"], "그룹": r.get("group", ""), "활성": r["active"], "완료 제출": bool(r["submitted"]), "완료 제출 횟수": r["submission_count"], "최근 제출번호": (r.get("latest") or {}).get("submission_number", ""), "최근 완료 시각": timestamp((r.get("latest") or {}).get("completed_at"))} for r in rows], hide_index=True, use_container_width=True)
+    st.dataframe([{"이름": r["name"], "ID": r["user_id"], "그룹": r.get("group", ""), "계정": "활성" if r["active"] else "비활성",
+                   "제출 상태": "제출" if r["submitted"] else "미제출", "완료 제출 횟수": r["submission_count"],
+                   "최근 버전": str(r["latest"]["version"]) if r.get("latest") else "—",
+                   "최근 파일명": " / ".join(f["name"] for f in (r.get("latest") or {}).get("files", [])),
+                   "최근 완료 시각": timestamp((r.get("latest") or {}).get("completed_at"))} for r in rows],
+                 hide_index=True, use_container_width=True)
     if st.button("이 과제의 전체 현황 CSV 준비"):
         st.session_state.export = {"assignment_id": assignment["id"], "data": call("/admin/export?" + urlencode({"assignment_id": assignment["id"]}), binary=True)}
     export = st.session_state.get("export")
     if export and export["assignment_id"] == assignment["id"]:
         private_csv_download("제출 현황 CSV 다운로드", export["data"], "submission_status.csv")
     st.divider()
-    st.subheader("완료 제출물·보존 버전")
-    submissions = data.get("submissions", [])
+    st.subheader("제출 파일 확인")
+    previous = st.checkbox("이전 완료 버전도 표시", key="admin_previous_versions")
+    file_search = st.text_input("제출 파일명 검색", key="admin_file_search")
+    visible = {r["user_id"] for r in rows}
+    latest = {r["latest"]["id"] for r in rows if r.get("latest")}
+    submissions = [s for s in data.get("submissions", [])
+                   if s["user_id"] in visible and (previous or s["id"] in latest)]
+    if file_search:
+        submissions = [s for s in submissions if any(file_search.casefold() in f["name"].casefold() for f in s["files"])]
+    sort = st.radio("제출물 정렬", ["최근 제출순", "이름순"], horizontal=True)
+    submissions.sort(key=(lambda s: (s["name"].casefold(), s["user_id"], -s["version"])) if sort == "이름순"
+                     else (lambda s: (s["completed_at"], s["submission_number"])), reverse=sort == "최근 제출순")
+    file_rows = [{"이름": s["name"], "ID": s["user_id"], "그룹": s.get("group", ""), "과제": s["assignment_title"],
+                  "제출번호": s["submission_number"], "버전": s["version"], "완료 시각": timestamp(s["completed_at"]),
+                  "원본 파일명": f["name"], "크기 (B)": f["size"], "서버 저장 경로": f.get("storage_path", "")}
+                 for s in submissions for f in s["files"]
+                 if not file_search or file_search.casefold() in f["name"].casefold()]
+    st.caption(f"표시 중: 제출 {len(submissions)}건 · 파일 {len(file_rows)}개. " +
+               ("이전 완료 버전을 포함합니다." if previous else "수강생별 최근 완료 버전만 표시합니다."))
     if not submissions:
         st.info("조회 조건에 해당하는 완료 제출물이 없습니다.")
-    for item in submissions:
-        with st.expander(f"{item.get('user_id', '')} · 제출번호 {item.get('submission_number', '—')} · 버전 {item.get('version', '—')} · {size(item['total_bytes'])}"):
-            submission_details(item, "admin_" + item["id"], admin=True)
+        return
+    st.dataframe(file_rows, hide_index=True, use_container_width=True)
+    private_csv_download("현재 파일 목록 CSV 다운로드", csv_bytes(file_rows, list(file_rows[0])), "submission_files.csv")
+    selected = st.selectbox("확인할 제출", submissions,
+                            format_func=lambda s: f"{s['name']} ({s['user_id']}) · 제출번호 {s['submission_number']} · 버전 {s['version']} · " + " / ".join(f["name"] for f in s["files"]))
+    st.caption("다운로드한 파일명에는 수강생 이름·ID·제출번호·버전이 포함됩니다. 서버 저장 경로는 서버 PC의 경로입니다.")
+    with st.container(border=True):
+        submission_details(selected, "admin_" + selected["id"], admin=True)
 
 
 def admin_storage():
@@ -450,7 +582,7 @@ def main():
         if not st.session_state.get("token"):
             st.markdown('<div class="ah-brand"><span class="ah-mark">AH</span>AssignmentHub</div>', unsafe_allow_html=True)
         else:
-            st.markdown('<div class="ah-eyebrow">CLASS WORKSPACE</div>', unsafe_allow_html=True)
+            st.markdown('<div class="ah-eyebrow">과제 관리</div>', unsafe_allow_html=True)
         st.title(info.get("course_name", "AssignmentHub"))
         if st.session_state.get("flash"):
             st.success(st.session_state.pop("flash"))
