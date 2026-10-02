@@ -73,7 +73,7 @@ function renderUnfinished(items) {
   for(const u of items){const box=element('div',undefined,'unfinished-item');box.append(element('strong',u.assignment_title||u.assignment_id),element('div',(labels[u.status]||u.status)+' · '+bytes(u.total_bytes)));
     if(u.error)box.append(element('p',u.error,'small'));
     if(!['cancelled','expired','failed'].includes(u.status)){
-      const button=element('button','이 작업 이어 올리기','secondary');button.disabled=state.running;button.onclick=()=>{state.resume=u;state.upload=u;state.manifest=null;state.requestId=null;state.selected=[];$('files').value='';$('assignment').value=u.assignment_id;$('assignment').disabled=true;hidden('resume-indicator',false);$('resume-indicator').textContent='이어 올릴 파일 '+u.files.length+'개를 모두 다시 선택하세요: '+u.files.map(f=>f.name).join(', ');hidden('fresh',false);hidden('receipt');selection();renderProgress();};box.append(button);
+      const button=element('button','이 작업 이어 올리기','secondary');button.disabled=state.running;button.onclick=()=>{state.resume=u;state.upload=u;state.manifest=null;state.requestId=null;state.selected=[];$('files').value='';$('assignment').value=u.assignment_id;$('assignment').disabled=true;hidden('resume-indicator',false);$('resume-indicator').textContent='이어 올릴 파일 '+u.files.length+'개를 모두 다시 선택하세요: '+u.files.map(f=>f.name).join(', ');hidden('fresh',false);hidden('receipt');controls(false);renderProgress();};box.append(button);
     }else{box.append(element('div','재개할 수 없습니다. 새 제출을 시작하세요.','muted'));}
     $('unfinished').append(box);}
 }
