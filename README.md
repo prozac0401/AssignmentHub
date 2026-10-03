@@ -12,7 +12,9 @@
 
 PDF·PPTX와 퀵가이드는 v1.3.0 기준의 기본 절차 안내입니다. **v1.4.0의 명단 결과 보관·파일 허용 정책·저장 경로 변경은 [업그레이드 안내](docs/releases/v1.4.0.md)와 [관리자 안내](docs/admin-guide.md)를 먼저 확인하세요.** 운영자용·수강생용 퀵가이드는 각각 한 쪽이며, 상세 매뉴얼은 수업 준비부터 종료·백업·복원까지 12개 시나리오를 설명합니다. [명단 예시 TSV 3종](docs/manual/README.md#tsv-예시-파일)과 인터넷 없이 열 수 있는 웹 매뉴얼을 함께 제공합니다.
 
-현재 [v1.4.0 릴리즈](https://github.com/prozac0401/AssignmentHub/releases/tag/v1.4.0)를 사용하세요. 과제별 파일 분류·영상 검사, 수강생별 제출물 확인과 읽기 쉬운 저장 경로, 복구 가능한 명단 등록, 로그인·업로드 안정성 개선을 포함합니다. [릴리즈 및 업그레이드 안내](docs/releases/v1.4.0.md) · [개선 검증 보고서](docs/review-fixes-test-report.md) · [파일 정책 검증](docs/file-policy-test-report.md)
+현재 [v1.4.1 릴리즈](https://github.com/prozac0401/AssignmentHub/releases/tag/v1.4.1)를 사용하세요. 미완료 작업의 **이 작업 이어 올리기**를 선택하면 원본 파일을 다시 고르기 전에도 **업로드 취소** 버튼이 표시됩니다. 서버의 취소·인증·저장 정책은 유지합니다. [이번 릴리즈와 검증 범위](docs/releases/v1.4.1.md)
+
+v1.4.0의 과제별 파일 분류·영상 검사, 수강생별 제출물 확인과 읽기 쉬운 저장 경로, 복구 가능한 명단 등록, 로그인·업로드 안정성 개선을 포함합니다. [기존 기능 및 업그레이드 안내](docs/releases/v1.4.0.md) · [개선 검증 보고서](docs/review-fixes-test-report.md) · [파일 정책 검증](docs/file-policy-test-report.md)
 
 서버 관리창과 수업·제출 화면에 공통 디자인을 적용했습니다. 창 크기에 따라 메뉴·입력란·버튼을 재배치하며 파일 드래그 앤 드롭을 지원합니다. [디자인 참고와 화면 크기 대응](docs/ui-design.md)
 
@@ -20,7 +22,7 @@ PDF·PPTX와 퀵가이드는 v1.3.0 기준의 기본 절차 안내입니다. **v
 
 ## 더블클릭으로 시작 — 서버 운영자
 
-1. [**`AssignmentHub-1.4.0-windows-x64.zip`**](https://github.com/prozac0401/AssignmentHub/releases/download/v1.4.0/AssignmentHub-1.4.0-windows-x64.zip) 전체를 쓰기 가능한 폴더에 압축 해제합니다. Windows 10/11 x64용이며 Python·Tcl/Tk·라이브러리·Caddy가 모두 포함되어 있습니다.
+1. [**`AssignmentHub-1.4.1-windows-x64.zip`**](https://github.com/prozac0401/AssignmentHub/releases/download/v1.4.1/AssignmentHub-1.4.1-windows-x64.zip) 전체를 쓰기 가능한 폴더에 압축 해제합니다. Windows 10/11 x64용이며 Python·Tcl/Tk·라이브러리·Caddy가 모두 포함되어 있습니다.
 2. 압축 해제한 폴더의 **`start.bat`를 더블클릭**합니다. 별도 설치, 관리자 권한, 인터넷 다운로드 없이 한국어 서버 관리창을 엽니다. ZIP 안에서 직접 실행하지 마세요.
 3. **새 과정 만들기**에서 과정명·수강생 접속 IP·관리자 비밀번호를 입력합니다. 과정 ID와 비어 있는 포트는 제안되며, 저장 폴더를 선택할 수 있습니다. 용량은 GiB 단위로 입력합니다.
 4. 과정 선택 → **서버 시작** → **관리자 화면 열기** 순서로 진행합니다. 웹 관리자 화면의 **운영 안내**에서 명단 등록·과제 설정·접속 주소 안내를 진행합니다.
